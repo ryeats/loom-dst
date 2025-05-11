@@ -1,5 +1,3 @@
-package org.example;
-
 /*
  * (c) Copyright 2025 Ryan Yeats. All rights reserved.
  *
@@ -15,6 +13,7 @@ package org.example;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.example;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -24,74 +23,84 @@ import java.util.concurrent.ThreadFactory;
 
 public class SchedulableVirtualThreadFactory implements ThreadFactory {
 
-    private static final Class<?> VIRTUAL_THREAD_CLASS;
-    private static final Constructor<?> VIRTUAL_THREAD_CONSTRUCTOR;
-    private static final Method VIRTUAL_THREAD_UEH_SETTER;
+  private static final Class<?> VIRTUAL_THREAD_CLASS;
+  private static final Constructor<?> VIRTUAL_THREAD_CONSTRUCTOR;
+  private static final Method VIRTUAL_THREAD_UEH_SETTER;
 
-    static {
-        try {
-            VIRTUAL_THREAD_CLASS = Class.forName("java.lang.VirtualThread");
+  static {
+    try {
+      VIRTUAL_THREAD_CLASS = Class.forName("java.lang.VirtualThread");
 
-            Constructor<?> constructor = VIRTUAL_THREAD_CLASS.getDeclaredConstructor(
-                    Executor.class, String.class, int.class, Runnable.class
-            );
-            constructor.setAccessible(true);
-            VIRTUAL_THREAD_CONSTRUCTOR = constructor;
+      Constructor<?> constructor =
+          VIRTUAL_THREAD_CLASS.getDeclaredConstructor(
+              Executor.class, String.class, int.class, Runnable.class);
+      constructor.setAccessible(true);
+      VIRTUAL_THREAD_CONSTRUCTOR = constructor;
 
-            Method uehSetter = Thread.class.getDeclaredMethod(
-                    "uncaughtExceptionHandler", Thread.UncaughtExceptionHandler.class
-            );
-            uehSetter.setAccessible(true);
-            VIRTUAL_THREAD_UEH_SETTER = uehSetter;
+      Method uehSetter =
+          Thread.class.getDeclaredMethod(
+              "uncaughtExceptionHandler", Thread.UncaughtExceptionHandler.class);
+      uehSetter.setAccessible(true);
+      VIRTUAL_THREAD_UEH_SETTER = uehSetter;
 
-        } catch (Exception e) {
-            throw new InternalError(e);
-        }
+    } catch (Exception e) {
+      throw new InternalError(e);
     }
+  }
 
   private final Executor scheduler;
   private final Thread.UncaughtExceptionHandler ueh;
   private final String threadName;
   private final int characteristics;
 
-    public SchedulableVirtualThreadFactory(Executor scheduler) {
-        this(scheduler,"",0);
-    }
-    public SchedulableVirtualThreadFactory(Executor scheduler,String threadName) {
-        this(scheduler,threadName,0);
-    }
-    public SchedulableVirtualThreadFactory(Executor scheduler,String threadName, int characteristics) {
-        this(scheduler,threadName,characteristics,null);
-    }
-    public SchedulableVirtualThreadFactory(Executor scheduler,String threadName, int characteristics,Thread.UncaughtExceptionHandler ueh) {
-        this.scheduler = scheduler;
-        this.ueh=ueh;
-        this.threadName = threadName;
-        this.characteristics = characteristics;
-    }
-    public SchedulableVirtualThreadFactory(Executor scheduler,Thread.UncaughtExceptionHandler ueh) {
-        this(scheduler,"",0,ueh);
-    }
+  public SchedulableVirtualThreadFactory(Executor scheduler) {
+    this(scheduler, "", 0);
+  }
 
-    @Override
-    public Thread newThread(Runnable r) {
-        try {
-            Thread t = (Thread) VIRTUAL_THREAD_CONSTRUCTOR.newInstance(scheduler, threadName, characteristics, r);
-            if(ueh!=null)
-            {
-                setUncaughtExceptionHandler(t,ueh);
-            }
-            return t;
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
-    }
+  public SchedulableVirtualThreadFactory(Executor scheduler, String threadName) {
+    this(scheduler, threadName, 0);
+  }
 
-    protected void setUncaughtExceptionHandler(Thread t, Thread.UncaughtExceptionHandler ueh) {
-        try {
-            VIRTUAL_THREAD_UEH_SETTER.invoke(t, ueh);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+  public SchedulableVirtualThreadFactory(
+      Executor scheduler, String threadName, int characteristics) {
+    this(scheduler, threadName, characteristics, null);
+  }
+
+  public SchedulableVirtualThreadFactory(
+      Executor scheduler,
+      String threadName,
+      int characteristics,
+      Thread.UncaughtExceptionHandler ueh) {
+    this.scheduler = scheduler;
+    this.ueh = ueh;
+    this.threadName = threadName;
+    this.characteristics = characteristics;
+  }
+
+  public SchedulableVirtualThreadFactory(Executor scheduler, Thread.UncaughtExceptionHandler ueh) {
+    this(scheduler, "", 0, ueh);
+  }
+
+  @Override
+  public Thread newThread(Runnable r) {
+    try {
+      Thread t =
+          (Thread)
+              VIRTUAL_THREAD_CONSTRUCTOR.newInstance(scheduler, threadName, characteristics, r);
+      if (ueh != null) {
+        setUncaughtExceptionHandler(t, ueh);
+      }
+      return t;
+    } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+      throw new RuntimeException(e);
     }
+  }
+
+  protected void setUncaughtExceptionHandler(Thread t, Thread.UncaughtExceptionHandler ueh) {
+    try {
+      VIRTUAL_THREAD_UEH_SETTER.invoke(t, ueh);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
 }

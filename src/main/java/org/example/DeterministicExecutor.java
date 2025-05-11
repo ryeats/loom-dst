@@ -1,5 +1,3 @@
-package org.example;
-
 /*
  * (c) Copyright 2025 Ryan Yeats. All rights reserved.
  *
@@ -15,6 +13,7 @@ package org.example;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.example;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,31 +21,37 @@ import java.util.concurrent.Executor;
 import java.util.random.RandomGenerator;
 
 public class DeterministicExecutor implements Executor {
-    private final RandomGenerator random;
-    private static final ArrayList<Runnable> workQueue = new ArrayList<>();
+  private final RandomGenerator random;
+  private static final ArrayList<Runnable> workQueue = new ArrayList<>();
 
-    public DeterministicExecutor(RandomGenerator random) {
-        this.random = random;
+  public DeterministicExecutor(RandomGenerator random) {
+    this.random = random;
+  }
+
+  @Override
+  public void execute(Runnable runnableToWrap) {
+    workQueue.add(runnableToWrap);
+  }
+
+  public synchronized void drain() {
+    //        System.out.println("Executing "+workQueue.size()+" tasks.");
+    while (!workQueue.isEmpty()) {
+      Collections.shuffle(workQueue, random);
+      Runnable task = workQueue.removeFirst();
+      //      Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
+      task.run();
     }
+  }
 
-    @Override
-    public void execute(Runnable runnableToWrap) {
-        workQueue.add(runnableToWrap);
+  public void runInCurrentQueueOrder() {
+    System.out.println("Executing " + workQueue.size() + " tasks.");
+    while (!workQueue.isEmpty()) {
+      Runnable task = workQueue.removeFirst();
+      task.run();
     }
+  }
 
-    public synchronized void drain()
-    {
-        while (!workQueue.isEmpty()) {
-            Collections.shuffle(workQueue, random);
-            Runnable task = workQueue.removeFirst();
-            //      Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
-            task.run();
-        }
-    }
-
-    public int queueSize()
-    {
-        return workQueue.size();
-    }
-
+  public int queueSize() {
+    return workQueue.size();
+  }
 }
