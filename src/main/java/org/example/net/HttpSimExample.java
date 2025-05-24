@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -43,12 +42,10 @@ import java.util.random.RandomGenerator;
 
 public class HttpSimExample {
 
-    private static ScheduledExecutorService simStub = Executors.newScheduledThreadPool(1);
-    private static JdkHttpServer server;
+    private static JdkHttpStringBufferServer server;
     private static HttpClient client;
 
-    //Unsuccessfully Trying to do a more complex example deterministically with the simulation loop run in a background thread
-    //system time
+    //Failed attempt to see if the JdkHttpServer with a deterministic executor can be made deterministic
     public static void main(String... args)
             throws IOException, InterruptedException, ExecutionException {
         long seed = 43210;
@@ -60,34 +57,36 @@ public class HttpSimExample {
 //  ThreadFactory threadFactory = Thread.ofVirtual().factory(); //Non deterministic scheduler
 //  ExecutorService executor = Executors.newSingleThreadExecutor(threadFactory); //Single virtual thread
         ExecutorService executor = Executors.newThreadPerTaskExecutor(threadFactory);
-//    simStub.scheduleAtFixedRate(scheduler::runInCurrentQueueOrder, 1000, 1000,TimeUnit.MILLISECONDS);
-        simStub.scheduleAtFixedRate(scheduler::drain, 10, 1000, TimeUnit.MILLISECONDS); //random execution order in background thread
-//        threadFactory.newThread(() -> {
-        try {
-            server = new JdkHttpServer(executor);
+        Future<?> start = executor.submit(() -> {
+            try {
+                server = new JdkHttpStringBufferServer(executor);
 
-            client =
-                    HttpClient.newBuilder().executor(executor).connectTimeout(Duration.ofSeconds(5)).build();
-            Thread.sleep(100);
+                client =
+                        HttpClient.newBuilder().executor(executor).connectTimeout(Duration.ofSeconds(5)).build();
+//                Thread.sleep(100);
 
-            scheduler.runInCurrentQueueOrder();
-
-            HttpRequest request =
-                    HttpRequest.newBuilder()
-                            .POST(HttpRequest.BodyPublishers.ofString("start:"))
-                            .uri(URI.create("http://localhost:8080/file"))
-                            .build();
-            CompletableFuture<HttpResponse<String>> resp =
-                    client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
-            while (!resp.isDone()) {
                 scheduler.runInCurrentQueueOrder();
-                Thread.sleep(10);
+
+                HttpRequest request =
+                        HttpRequest.newBuilder()
+                                .POST(HttpRequest.BodyPublishers.ofString("start:"))
+                                .uri(URI.create("http://localhost:8080/file"))
+                                .build();
+                CompletableFuture<HttpResponse<String>> resp =
+                        client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+//            while (!resp.isDone()) {
+//                scheduler.runInCurrentQueueOrder();
+//                Thread.sleep(10);
+//            }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        });
+        while (!start.isDone())
+        {
+            scheduler.drain();
         }
-//        }).start();
-        Thread.sleep(1000);
+//        Thread.sleep(1000);
         Collection<Callable<CompletableFuture<HttpResponse<String>>>> tasks = new
                 ArrayList<>();
         tasks.add(() -> putRequest(client, "1"));
@@ -100,8 +99,11 @@ public class HttpSimExample {
         tasks.add(() -> getRequest(client));
         tasks.add(() -> putRequest(client, "5"));
         tasks.add(() -> getRequest(client));
-        List<Future<CompletableFuture<HttpResponse<String>>>> results = executor.invokeAll(tasks);
+        System.out.println("Submitting "+tasks.size()+" tasks");
+        List<Future<CompletableFuture<HttpResponse<String>>>> results = tasks.stream().map(executor::submit).toList();
+//        List<Future<CompletableFuture<HttpResponse<String>>>> results = executor.invokeAll(tasks);
         while (!results.stream().filter(Predicate.not(Future::isDone)).toList().isEmpty()) {
+            scheduler.drain();
             System.out.println(results.stream().filter(Predicate.not(Future::isDone)).toList().size());
         }
         results.forEach(f -> {
@@ -113,7 +115,6 @@ public class HttpSimExample {
         });
 
         server.close();
-        simStub.shutdownNow();
     }
 
     public static CompletableFuture<HttpResponse<String>> putRequest(
