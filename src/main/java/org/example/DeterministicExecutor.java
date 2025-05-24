@@ -21,7 +21,7 @@ import java.util.concurrent.Executor;
 import java.util.random.RandomGenerator;
 
 public class DeterministicExecutor implements Executor {
-  private final RandomGenerator random;
+  private RandomGenerator random;
   private static final ArrayList<Runnable> workQueue = new ArrayList<>();
 
   public DeterministicExecutor(RandomGenerator random) {
@@ -53,5 +53,9 @@ public class DeterministicExecutor implements Executor {
 
   public int queueSize() {
     return workQueue.size();
+  }
+
+  public void setRandom(RandomGenerator random) {
+    this.random = random;
   }
 }

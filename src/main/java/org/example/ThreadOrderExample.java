@@ -18,6 +18,7 @@ package org.example;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,15 +29,22 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.random.RandomGenerator;
+import org.example.net.EchoServer;
 
 public class ThreadOrderExample {
+  static long seed = new SecureRandom().nextLong();
+
   /*
    Run with java 24 jvm args: --add-opens=java.base/java.lang=ALL-UNNAMED
   */
-  public static void main(String[] args) throws InterruptedException {
+  public static void main(String[] args) throws InterruptedException, IOException {
     //    System.setProperty("jdk.virtualThreadScheduler.parallelism","1");
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize","1");
     //    System.setProperty("jdk.virtualThreadScheduler.minRunnable","1");
+    ExecutorService serverExec = Executors.newSingleThreadExecutor();
+    EchoServer server = new EchoServer(serverExec, 4242);
     System.out.println("8 Threads");
     try (ExecutorService executor = Executors.newFixedThreadPool(8)) {
       times(executor, 4);
@@ -50,61 +58,47 @@ public class ThreadOrderExample {
     try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
       times(executor, 4);
     }
-    long seed = new Random().nextLong();
-    System.out.println("Deterministic Virtual Threads Seed: " + seed);
-    for (int i = 0; i < 4; i++) {
-      DeterministicTestExecutor dte = new DeterministicTestExecutor(new Random(seed));
-      StringBuffer buffer = new StringBuffer();
-      submitAppendTasks(dte, buffer);
-      dte.drain();
-      Thread.sleep(100); // Wait for threads to wake up
-      dte.drain(); // The slept threads get added back to the queue so we have to drain again
-      // which is not great for deterministic simulation because its system time not simulation time
-      System.out.println("Result: " + buffer);
-    }
 
+    System.out.println("Deterministic Virtual Threads Seed: " + seed);
+    DeterministicTestExecutor dte = new DeterministicTestExecutor(new Random(seed));
+    deterministicTimes(dte::setRandom, dte::drain, dte, 4);
+
+    //    server.close();
+    //    serverExec.close();
     System.out.println("Deterministic Virtual ThreadFactory: " + seed);
-    for (int i = 0; i < 4; i++) {
-      DeterministicExecutor de = new DeterministicExecutor(new Random(seed));
-      SchedulableVirtualThreadFactory tf = new SchedulableVirtualThreadFactory(de);
-      try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf)) {
-        StringBuffer buffer = new StringBuffer();
-        submitAppendTasks(executor, buffer);
-        de.drain();
-        Thread.sleep(100); // Wait for threads to wake up
-        de.drain(); // The slept threads get added back to the queue so we have to drain again
-        // which is not great for deterministic simulation because its system time not simulation
-        // time
-        System.out.println("Result: " + buffer);
-      }
+    DeterministicExecutor de = new DeterministicExecutor(new Random(seed));
+    SchedulableVirtualThreadFactory tf = new SchedulableVirtualThreadFactory(de);
+    //      try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf);EchoServer
+    // echoServer = new EchoServer(executor,4242)) {
+    try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf)) {
+      deterministicTimes(de::setRandom, de::drain, executor, 4);
+      //        executor.submit(()->echoServer.close());//The close will block the main thread
+      //        de.drain();
     }
 
     ScheduledExecutorService simStub = Executors.newScheduledThreadPool(1);
     System.out.println("Deterministic Virtual ThreadFactory: " + seed);
     System.out.println("Simulation loop in separate thread.");
-    for (int i = 0; i < 4; i++) {
-      DeterministicExecutor de = new DeterministicExecutor(new Random(seed));
-      ScheduledFuture<?> future =
-          simStub.scheduleAtFixedRate(de::drain, 10, 10, TimeUnit.MILLISECONDS);
-      SchedulableVirtualThreadFactory tf = new SchedulableVirtualThreadFactory(de);
-      try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf)) {
-        StringBuffer buffer = new StringBuffer();
-        submitAppendTasks(executor, buffer);
-        Thread.sleep(
-            100); // TODO have to wait until the sim loop finishes... not sure its practical to run
-        // simulation this way since its hard to know when its done.
-        System.out.println("Result: " + buffer);
-      }
-      future.cancel(true);
+    de = new DeterministicExecutor(new Random(seed));
+    ScheduledFuture<?> future =
+        simStub.scheduleWithFixedDelay(de::drain, 10, 10, TimeUnit.MILLISECONDS);
+    tf = new SchedulableVirtualThreadFactory(de);
+    //      try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf);EchoServer
+    // echoServer = new EchoServer(executor,4242)) {
+    try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf)) {
+      deterministicTimes(de::setRandom, () -> {}, executor, 4);
     }
+    future.cancel(true);
     simStub.shutdownNow();
+    server.close();
+    serverExec.close();
   }
 
   private static final class DeterministicTestExecutor implements Executor {
-    private final Random random;
+    private RandomGenerator random;
     private final List<Runnable> queue = new ArrayList<>();
 
-    private DeterministicTestExecutor(Random random) {
+    private DeterministicTestExecutor(RandomGenerator random) {
       this.random = random;
     }
 
@@ -125,6 +119,10 @@ public class ThreadOrderExample {
         task.run();
       }
     }
+
+    public void setRandom(RandomGenerator random) {
+      this.random = random;
+    }
   }
 
   public static void times(Executor executor, int times) {
@@ -136,6 +134,24 @@ public class ThreadOrderExample {
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
+
+      System.out.println("Result: " + buffer);
+    }
+  }
+
+  public static void deterministicTimes(
+      Consumer<RandomGenerator> reset, Runnable exec, Executor executor, int times) {
+    for (int i = 0; i < times; i++) {
+      reset.accept(new Random(seed));
+      StringBuffer buffer = new StringBuffer();
+      submitAppendTasks(executor, buffer);
+      exec.run();
+      try {
+        Thread.sleep(100); // Wait for threads to wake up
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+      exec.run();
 
       System.out.println("Result: " + buffer);
     }
@@ -157,28 +173,28 @@ public class ThreadOrderExample {
   }
 
   public static void appendToBuffer(StringBuffer buffer, String str) {
-    buffer.append(str);
-    writeBufferToFile(buffer, str);
-    buffer.append(str);
-    testSync(buffer);
-    Thread.yield();
-    buffer.append(str);
     try {
+      buffer.append(str);
+      writeBufferToFile(buffer, str);
+      buffer.append(str);
+      testSync(buffer);
+      //TODO couldn't get this to work it seems to be blocking for some reason
+      //    EchoClient echoClient = new EchoClient("localhost",4242);
+      //    buffer.append(echoClient.send(str));
+      Thread.yield();
+      buffer.append(str);
       Thread.sleep(10);
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
   }
 
-  // TODO This doesn't seem to yield for the DeterministicExecutor? you can see this because of the
-  // A.A or B.B pattern
-  // When setting parallelism to 1 it doesn't look like the normal virtual thread scheduler is
-  // actually yielding either???
+  // Synchronous file IO captures the virtual thread you can see this because of the
+  // A.A or B.B pattern is and no interleaving
   public static void writeBufferToFile(StringBuffer buffer, String str) {
     buffer.append(".");
 
-    try (FileWriter writer =
-        new FileWriter(Path.of("./target/"+ str + ".txt").toFile())) {
+    try (FileWriter writer = new FileWriter(Path.of("./target/" + str + ".txt").toFile())) {
       writer.write(buffer.toString());
       writer.flush();
     } catch (IOException e) {

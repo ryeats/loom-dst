@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.example.net;
+package org.example.nondeterministic;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -53,8 +52,8 @@ public class JdkHttpStringBufferServer implements Closeable {
       switch (method) {
         case "PUT":
         case "POST":
-//          appendToBuffer(STRING_BUFFER,path);
-          appendToBuffer(STRING_BUFFER,new String(exchange.getRequestBody().readAllBytes()));
+          //          appendToBuffer(STRING_BUFFER,path);
+          appendToBuffer(STRING_BUFFER, new String(exchange.getRequestBody().readAllBytes()));
           break;
         case "GET":
           readBuffer(exchange);
