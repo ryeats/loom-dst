@@ -15,47 +15,63 @@
  */
 package org.example;
 
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.random.RandomGenerator;
 
-public class DeterministicExecutor implements Executor {
-  private RandomGenerator random;
-  private static final ArrayList<Runnable> workQueue = new ArrayList<>();
 
-  public DeterministicExecutor(RandomGenerator random) {
-    this.random = random;
-  }
+public class DeterministicExecutor implements Executor, AutoCloseable {
+    private RandomGenerator random;
+    private final List<Runnable> workQueue = new CopyOnWriteArrayList<>();
+    ExecutorService singleThread = Executors.newSingleThreadExecutor();
 
-  @Override
-  public void execute(Runnable runnableToWrap) {
-    workQueue.add(runnableToWrap);
-  }
-
-  public synchronized void drain() {
-    //        System.out.println("Executing "+workQueue.size()+" tasks.");
-    while (!workQueue.isEmpty()) {
-      Collections.shuffle(workQueue, random);
-      Runnable task = workQueue.removeFirst();
-      //      Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
-      task.run();
+    public DeterministicExecutor(RandomGenerator random) {
+        this.random = random;
     }
-  }
 
-  public void runInCurrentQueueOrder() {
-    System.out.println("Executing " + workQueue.size() + " tasks.");
-    while (!workQueue.isEmpty()) {
-      Runnable task = workQueue.removeFirst();
-      task.run();
+    @Override
+    public void execute(Runnable runnable) {
+//    System.out.println("Calling execute from "+ Thread.currentThread());
+        singleThread.submit(() -> workQueue.add(runnable));
     }
-  }
 
-  public int queueSize() {
-    return workQueue.size();
-  }
+    public Future<?> drain() {
+        return singleThread.submit(() -> this.internalDrain(true));
+    }
 
-  public void setRandom(RandomGenerator random) {
-    this.random = random;
-  }
+
+    private void internalDrain(boolean shuffle) {
+//    System.out.println("Calling drain from "+Thread.currentThread());
+        //        System.out.println("Executing "+workQueue.size()+" tasks.");
+        while (!workQueue.isEmpty()) {
+            if (shuffle) {
+                Collections.shuffle(workQueue, random);
+            }
+            Runnable task = workQueue.removeFirst();
+//            Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
+            task.run();
+        }
+    }
+
+    public Future<?> runInCurrentQueueOrder() {
+        return singleThread.submit(() -> this.internalDrain(false));
+    }
+
+    public int queueSize() {
+        return workQueue.size();
+    }
+
+    public void setRandom(RandomGenerator random) {
+        this.random = random;
+    }
+
+    @Override
+    public void close() {
+        singleThread.close();
+    }
 }

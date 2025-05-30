@@ -17,6 +17,9 @@ package org.example;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -28,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.random.RandomGenerator;
@@ -43,8 +47,8 @@ public class ThreadOrderExample {
     //    System.setProperty("jdk.virtualThreadScheduler.parallelism","1");
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize","1");
     //    System.setProperty("jdk.virtualThreadScheduler.minRunnable","1");
-    ExecutorService serverExec = Executors.newSingleThreadExecutor();
-    EchoServer server = new EchoServer(serverExec, 4242);
+//    ExecutorService serverExec = Executors.newSingleThreadExecutor();
+//    EchoServer server = new EchoServer(serverExec, 4242);
     System.out.println("8 Threads");
     try (ExecutorService executor = Executors.newFixedThreadPool(8)) {
       times(executor, 4);
@@ -66,32 +70,46 @@ public class ThreadOrderExample {
     //    server.close();
     //    serverExec.close();
     System.out.println("Deterministic Virtual ThreadFactory: " + seed);
+    for (int i = 0; i < 4; i++) {
     DeterministicExecutor de = new DeterministicExecutor(new Random(seed));
     SchedulableVirtualThreadFactory tf = new SchedulableVirtualThreadFactory(de);
     //      try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf);EchoServer
     // echoServer = new EchoServer(executor,4242)) {
     try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf)) {
-      deterministicTimes(de::setRandom, de::drain, executor, 4);
+        StringBuffer buffer = new StringBuffer();
+        submitAppendTasks(executor, buffer);
+        de.drain();
+        Thread.sleep(100); // Wait for threads to wake up
+        de.drain();
+        System.out.println("Result: " + buffer);
       //        executor.submit(()->echoServer.close());//The close will block the main thread
       //        de.drain();
+      }
     }
 
     ScheduledExecutorService simStub = Executors.newScheduledThreadPool(1);
     System.out.println("Deterministic Virtual ThreadFactory: " + seed);
     System.out.println("Simulation loop in separate thread.");
-    de = new DeterministicExecutor(new Random(seed));
-    ScheduledFuture<?> future =
-        simStub.scheduleWithFixedDelay(de::drain, 10, 10, TimeUnit.MILLISECONDS);
-    tf = new SchedulableVirtualThreadFactory(de);
-    //      try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf);EchoServer
-    // echoServer = new EchoServer(executor,4242)) {
-    try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf)) {
-      deterministicTimes(de::setRandom, () -> {}, executor, 4);
+    for (int i = 0; i < 4; i++) {
+      DeterministicExecutor de = new DeterministicExecutor(new Random(seed));
+      ScheduledFuture<?> future =
+              simStub.scheduleWithFixedDelay(de::drain, 10, 10, TimeUnit.MILLISECONDS);
+      ThreadFactory tf = new SchedulableVirtualThreadFactory(de);
+      //      try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf);EchoServer
+      // echoServer = new EchoServer(executor,4242)) {
+      try (ExecutorService executor = Executors.newThreadPerTaskExecutor(tf)) {
+        StringBuffer buffer = new StringBuffer();
+        submitAppendTasks(executor, buffer);
+        de.drain();
+        Thread.sleep(100); // Wait for threads to wake up
+        de.drain();
+        System.out.println("Result: " + buffer);
+      }
+      future.cancel(true);
     }
-    future.cancel(true);
     simStub.shutdownNow();
-    server.close();
-    serverExec.close();
+//    server.close();
+//    serverExec.close();
   }
 
   private static final class DeterministicTestExecutor implements Executor {
@@ -130,7 +148,7 @@ public class ThreadOrderExample {
       StringBuffer buffer = new StringBuffer();
       submitAppendTasks(executor, buffer);
       try {
-        Thread.sleep(100); // Wait for threads to wake up
+        Thread.sleep(1000); // Wait for threads to wake up
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
@@ -147,7 +165,7 @@ public class ThreadOrderExample {
       submitAppendTasks(executor, buffer);
       exec.run();
       try {
-        Thread.sleep(100); // Wait for threads to wake up
+        Thread.sleep(1000); // Wait for threads to wake up
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
@@ -184,6 +202,7 @@ public class ThreadOrderExample {
       Thread.yield();
       buffer.append(str);
       Thread.sleep(10);
+      buffer.append(str+isHostAlive("www.google.com",80,100));
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
@@ -199,6 +218,16 @@ public class ThreadOrderExample {
       writer.flush();
     } catch (IOException e) {
       e.printStackTrace();
+    }
+  }
+
+  public static String isHostAlive(String host, int port, int timeoutMillis) {
+    try (Socket socket = new Socket()) {
+      SocketAddress socketAddress = new InetSocketAddress(host, port);
+      socket.connect(socketAddress, timeoutMillis);
+      return "Y"; // Host is reachable
+    } catch (IOException e) {
+      return "N"; // Host is not reachable
     }
   }
 }
