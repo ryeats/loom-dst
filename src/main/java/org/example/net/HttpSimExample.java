@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.example.nondeterministic;
+package org.example.net;
 
 import java.io.IOException;
 import java.net.URI;
@@ -42,11 +42,11 @@ public class HttpSimExample {
   private static JdkHttpStringBufferServer server;
   private static HttpClient client;
 
-  // Failed attempt to see if the JdkHttpServer with a deterministic executor can be made
+  // See if the JdkHttpServer with a deterministic executor can be made
   // deterministic
   public static void main(String... args)
       throws IOException, InterruptedException, ExecutionException {
-    long seed = 43210;
+    long seed = 43211;
     //    long seed = new SecureRandom().nextLong();
     RandomGenerator rand = new Random(seed);
     System.out.println("Seed: " + seed);

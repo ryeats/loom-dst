@@ -52,7 +52,7 @@ public class EchoServer implements Closeable {
           while ((inputLine = reader.readLine()) != null) {
             //                        System.out.println("Received from client: " + inputLine);
             //              writer.println("Server echo: " + inputLine);
-            writer.println(inputLine.toLowerCase(Locale.ROOT));
+            writer.println(inputLine.toUpperCase(Locale.ROOT));
           }
           //                    System.out.println("Client disconnected: " +
           // clientSocket.getInetAddress());

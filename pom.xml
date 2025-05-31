@@ -53,7 +53,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.example.ThreadOrderExample</mainClass>
+                                    <mainClass>org.example.JavaDeterminismTest</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
