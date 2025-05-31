@@ -26,6 +26,8 @@ public class SchedulableVirtualThreadFactory implements ThreadFactory {
   private static final Class<?> VIRTUAL_THREAD_CLASS;
   private static final Constructor<?> VIRTUAL_THREAD_CONSTRUCTOR;
   private static final Method VIRTUAL_THREAD_UEH_SETTER;
+  private static final Thread.UncaughtExceptionHandler DEFAULT_UNCAUGHT_EXCEPTION_HANDLER =
+      new DefaultUncaughtExceptionHandler();
 
   static {
     try {
@@ -63,7 +65,7 @@ public class SchedulableVirtualThreadFactory implements ThreadFactory {
 
   public SchedulableVirtualThreadFactory(
       Executor scheduler, String threadName, int characteristics) {
-    this(scheduler, threadName, characteristics, null);
+    this(scheduler, threadName, characteristics, DEFAULT_UNCAUGHT_EXCEPTION_HANDLER);
   }
 
   public SchedulableVirtualThreadFactory(
@@ -101,6 +103,15 @@ public class SchedulableVirtualThreadFactory implements ThreadFactory {
       VIRTUAL_THREAD_UEH_SETTER.invoke(t, ueh);
     } catch (Exception e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  private static class DefaultUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
+
+    @Override
+    public void uncaughtException(Thread t, Throwable e) {
+      System.out.println(t);
+      e.printStackTrace();
     }
   }
 }

@@ -34,6 +34,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.example.net.EchoClient;
+import org.example.net.EchoServer;
 
 public class JavaDeterminismTest {
   static long seed = new SecureRandom().nextLong();
@@ -50,7 +52,10 @@ public class JavaDeterminismTest {
     System.setProperty("jdk.virtualThreadScheduler.maxPoolSize", "1");
     System.setProperty("jdk.virtualThreadScheduler.minRunnable", "1");
     System.out.println("Single Threaded (baseline to compare against when executed in order)");
-    testDeterminism(Executors::newSingleThreadExecutor, 4);
+    testDeterminismWithContext(
+        () ->
+            new DeterministicContext(Executors.newSingleThreadExecutor(), () -> {}, () -> {}, true),
+        4);
     System.out.println("8 Threads");
     testDeterminism(() -> Executors.newFixedThreadPool(8), 4);
     System.out.println("Virtual Threads");
@@ -61,18 +66,18 @@ public class JavaDeterminismTest {
           DeterministicExecutor de = new DeterministicExecutor(new Random(seed));
           SchedulableVirtualThreadFactory tf = new SchedulableVirtualThreadFactory(de);
           return new DeterministicContext(
-              Executors.newThreadPerTaskExecutor(tf), de::drain, de::close);
+              Executors.newThreadPerTaskExecutor(tf), de::drain, de::close, false);
         },
         20);
   }
 
   public record DeterministicContext(
-      ExecutorService executorSupplier, Runnable tick, Runnable cleanup) {}
+      ExecutorService executorSupplier, Runnable tick, Runnable cleanup, boolean singleThreaded) {}
 
   public static void testDeterminism(Supplier<ExecutorService> executorSupplier, int times)
       throws Exception {
     testDeterminismWithContext(
-        () -> new DeterministicContext(executorSupplier.get(), () -> {}, () -> {}), times);
+        () -> new DeterministicContext(executorSupplier.get(), () -> {}, () -> {}, false), times);
   }
 
   public static void testDeterminismWithContext(
@@ -84,7 +89,10 @@ public class JavaDeterminismTest {
       StringBuffer log = new StringBuffer();
       DeterministicContext context = contextSupplier.get();
       List<Future<?>> exerciseFutures = new ArrayList<>();
-      try (ExecutorService executorService = context.executorSupplier()) {
+      try (ExecutorService executorService = context.executorSupplier();
+          ExecutorService echoExec =
+              context.singleThreaded() ? Executors.newSingleThreadExecutor() : executorService) {
+        EchoServer echoServer = new EchoServer(echoExec, 4242);
         exerciseFutures.add(
             executorService.submit(
                 () -> {
@@ -107,12 +115,14 @@ public class JavaDeterminismTest {
         while (exerciseFutures.stream().anyMatch(Predicate.not(Future::isDone))) {
           context.tick().run();
           // TODO smaller loop times introduce indeterminism since threads that end up resuming
-          // beyond this timeout due to being slept, connecting or do synchronous file IO get
+          // beyond this timeout due to being slept, connect or do synchronous file IO get
           // shuffled into the work queue at differing times
           Thread.sleep(
               15); // has to be bigger than the largest sleep by some margin to keep things somewhat
           // deterministic
         }
+        echoServer.close();
+        context.tick().run();
       } finally {
         context.cleanup().run();
       }
@@ -155,10 +165,13 @@ public class JavaDeterminismTest {
       log.append(id);
 
       // this introduces indeterminism I assume because the time it
-      // takes to connect is variable so this won't be a problem for
-      // local connections?
+      // takes to connect is variable
       synchronousNetworkIO(log, i.incrementAndGet());
       log.append(id);
+
+      // TODO Not exactly sure how this introduces indeterminism yet but it does
+      //      syncLocalNetworkIO(log, i.incrementAndGet());
+      //      log.append(id);
 
       //            wait(log, id,lock);
       //            log.append(id);
@@ -234,6 +247,16 @@ public class JavaDeterminismTest {
         //                System.out.println(line);
       }
 
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void syncLocalNetworkIO(StringBuffer log, int id) {
+    EchoClient echoClient = new EchoClient("localhost", 4242);
+    try {
+      String resp = echoClient.send(log.toString());
+      log.append(id);
     } catch (IOException e) {
       e.printStackTrace();
     }

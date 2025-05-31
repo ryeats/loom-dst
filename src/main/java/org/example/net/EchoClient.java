@@ -25,7 +25,7 @@ public class EchoClient {
   private final String hostName;
   private final int portNumber;
 
-  public EchoClient(String hostName, int portNumber) throws IOException {
+  public EchoClient(String hostName, int portNumber) {
     this.hostName = hostName;
     this.portNumber = portNumber;
   }

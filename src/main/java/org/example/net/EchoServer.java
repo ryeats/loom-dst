@@ -25,21 +25,25 @@ import java.net.Socket;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class EchoServer implements Closeable {
 
+  private final Future<?> future;
   private volatile boolean running = true;
   private ServerSocket serverSocket;
 
-  public EchoServer() {}
+  private EchoServer() {
+    future = null;
+  }
 
   public EchoServer(ExecutorService executorService, int port) {
-    executorService.submit(() -> listen(port));
+    future = executorService.submit(() -> listen(port));
   }
 
   public void listen(int port) {
     try (ServerSocket serverSocket = new ServerSocket(port)) {
-      System.out.println("Server is listening on port " + port);
+      //      System.out.println("Server is listening on port " + port);
       this.serverSocket = serverSocket;
       while (running) {
         Socket clientSocket = serverSocket.accept();
@@ -58,16 +62,17 @@ public class EchoServer implements Closeable {
           // clientSocket.getInetAddress());
 
         } catch (IOException e) {
-          System.err.println("Error handling client: " + e.getMessage());
+          //          System.err.println("Error handling client: " + e.getMessage());
         }
         try {
-          Thread.sleep(1);
+          Thread.sleep(2);
         } catch (InterruptedException e) {
           throw new RuntimeException(e);
         }
+        //        Thread.yield();
       }
     } catch (IOException e) {
-      //            System.err.println("Error starting server: " + e.getMessage());
+      //                  System.err.println("Error starting server: " + e.getMessage());
     }
   }
 
@@ -80,6 +85,9 @@ public class EchoServer implements Closeable {
       } catch (IOException e) {
 
       }
+    }
+    if (future != null) {
+      future.cancel(true);
     }
   }
 

@@ -15,19 +15,21 @@
  */
 package org.example;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.random.RandomGenerator;
 
 public class DeterministicExecutor implements Executor, AutoCloseable {
   private RandomGenerator random;
-  private final List<Runnable> workQueue = new CopyOnWriteArrayList<>();
+  private final List<Runnable> workQueue = new ArrayList<>();
   private final ExecutorService singleThread = Executors.newSingleThreadExecutor();
+  private int maxExecutions = 20;
+  private int timeout = 5;
 
   public DeterministicExecutor(RandomGenerator random) {
     this.random = random;
@@ -39,14 +41,18 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
     singleThread.submit(() -> workQueue.add(runnable));
   }
 
-  public Future<?> drain() {
-    return singleThread.submit(() -> this.internalDrain(true));
+  public void drain() {
+    try {
+      singleThread.submit(() -> this.internalDrain(true)).get(timeout, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private void internalDrain(boolean shuffle) {
     //    System.out.println("Calling drain from "+Thread.currentThread());
-    //        System.out.println("Executing "+workQueue.size()+" tasks.");
-    while (!workQueue.isEmpty()) {
+    //    System.out.println("Executing "+workQueue.size()+" tasks.");
+    for (int count = 0; !workQueue.isEmpty() && count < maxExecutions; count++) {
       if (shuffle) {
         Collections.shuffle(workQueue, random);
       }
@@ -56,8 +62,12 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
     }
   }
 
-  public Future<?> runInCurrentQueueOrder() {
-    return singleThread.submit(() -> this.internalDrain(false));
+  public void runInCurrentQueueOrder() {
+    try {
+      singleThread.submit(() -> this.internalDrain(false)).get(timeout, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public int queueSize() {
@@ -71,5 +81,13 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
   @Override
   public void close() {
     singleThread.close();
+  }
+
+  public void setMaxExecutions(int maxExecutions) {
+    this.maxExecutions = maxExecutions;
+  }
+
+  public void setTimeout(int seconds) {
+    this.timeout = seconds;
   }
 }
