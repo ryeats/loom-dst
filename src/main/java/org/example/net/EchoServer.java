@@ -64,12 +64,12 @@ public class EchoServer implements Closeable {
         } catch (IOException e) {
           //          System.err.println("Error handling client: " + e.getMessage());
         }
-        try {
-          Thread.sleep(2);
-        } catch (InterruptedException e) {
-          throw new RuntimeException(e);
-        }
-        //        Thread.yield();
+        //        try {
+        //          Thread.sleep(2);
+        //        } catch (InterruptedException e) {
+        //          throw new RuntimeException(e);
+        //        }
+        Thread.yield();
       }
     } catch (IOException e) {
       //                  System.err.println("Error starting server: " + e.getMessage());

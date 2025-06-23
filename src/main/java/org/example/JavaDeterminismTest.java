@@ -15,13 +15,22 @@
  */
 package org.example;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.DELETE_ON_CLOSE;
+import static java.nio.file.StandardOpenOption.WRITE;
+
 import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousFileChannel;
+import java.nio.channels.CompletionHandler;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +45,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.example.net.EchoClient;
 import org.example.net.EchoServer;
+import org.example.net.NettyEchoClient;
 
 public class JavaDeterminismTest {
   static long seed = new SecureRandom().nextLong();
@@ -93,6 +103,10 @@ public class JavaDeterminismTest {
           ExecutorService echoExec =
               context.singleThreaded() ? Executors.newSingleThreadExecutor() : executorService) {
         EchoServer echoServer = new EchoServer(echoExec, 4242);
+
+        //        NettyEchoServer nettyEchoServer = new NettyEchoServer(echoExec, 4343);
+        //        nettyEchoServer.start();
+
         exerciseFutures.add(
             executorService.submit(
                 () -> {
@@ -122,6 +136,7 @@ public class JavaDeterminismTest {
           // deterministic
         }
         echoServer.close();
+        //        nettyEchoServer.close();
         context.tick().run();
       } finally {
         context.cleanup().run();
@@ -145,10 +160,10 @@ public class JavaDeterminismTest {
       log.append(id);
 
       // this introduces indeterminism if the sleep is longer than the
-      // drain loop time due to variability in  when the thread gets
+      // drain loop time due to variability in when the thread gets
       // started by the system
-      sleepThread(log, i.incrementAndGet());
-      log.append(id);
+      //      sleepThread(log, i.incrementAndGet());
+      //      log.append(id);
 
       // I didn't think this would interleave, but it does seem to
       // since we don't always see b3b d3d
@@ -158,23 +173,34 @@ public class JavaDeterminismTest {
       // Not useful because virtual threads are captured by synchronous
       // IO so we cannot simulate interleaving, also occasionally
       // causes indeterminism I don't know why though
-      synchronousFileIO(log, i.incrementAndGet());
-      log.append(id);
+      //      synchronousFileIO(log, i.incrementAndGet());
+      //      log.append(id);
+
+      //      asyncFileRead(log,i.incrementAndGet());
+      //      log.append(id);
+      //
+      //      asyncFileWrite(log,i.incrementAndGet());
+      //      log.append(id);
 
       lock(log, i.incrementAndGet(), lock);
       log.append(id);
 
+      //      wait(log, i.incrementAndGet(), es);
+      //      log.append(id);
+
       // this introduces indeterminism I assume because the time it
       // takes to connect is variable
-      synchronousNetworkIO(log, i.incrementAndGet());
-      log.append(id);
+      //      synchronousNetworkIO(log, i.incrementAndGet());
+      //      log.append(id);
+
+      //      nettyAsyncLocalNetworkIO(log, i.incrementAndGet(), es);
+      //      log.append(id);
 
       // TODO Not exactly sure how this introduces indeterminism yet but it does
       //      syncLocalNetworkIO(log, i.incrementAndGet());
       //      log.append(id);
 
-      //            wait(log, id,lock);
-      //            log.append(id);
+      // TODO
       // InputStream.read():
       // OutputStream.write():
       // BlockingQueue.take(): Waits for an element to become available in the queue.
@@ -183,6 +209,7 @@ public class JavaDeterminismTest {
       // CyclicBarrier.await(): Waits for all parties to arrive at the barrier.
       // Future.get()
       // Thread.join()
+      // java file and network nio
     } catch (Exception e) {
       System.out.println("Error: " + e.getMessage());
       throw new RuntimeException(e);
@@ -200,12 +227,18 @@ public class JavaDeterminismTest {
     //        System.out.print(id);
   }
 
-  public static void wait(StringBuffer log, int id, Lock lock) throws InterruptedException {
-    lock.notifyAll();
-    lock.wait(10);
-    //        new Object().wait(1);
-    //        id.wait(1);
-    log.append(id);
+  public static void wait(StringBuffer log, int id, ExecutorService es)
+      throws InterruptedException {
+    es.submit(
+        () -> {
+          synchronized (log) {
+            log.notify(); // Wakes up one waiting thread
+          }
+        });
+    synchronized (log) {
+      log.wait(10);
+      log.append(id);
+    }
   }
 
   public static synchronized void synchronizedMethod(StringBuffer log, int id) {
@@ -259,6 +292,87 @@ public class JavaDeterminismTest {
       log.append(id);
     } catch (IOException e) {
       e.printStackTrace();
+    }
+  }
+
+  public static void nettyAsyncLocalNetworkIO(StringBuffer log, int id, ExecutorService es) {
+    NettyEchoClient nettyEchoClient =
+        new NettyEchoClient(
+            es,
+            "localhost",
+            4242,
+            (nec, s) -> {
+              log.append(id);
+
+              nec.close();
+            });
+    try {
+      nettyEchoClient.start();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+    nettyEchoClient.sendMessage(log.toString());
+  }
+
+  public static void asyncFileRead(StringBuffer log, int id) {
+    try {
+      Path path = Paths.get("./license-header.txt");
+      AsynchronousFileChannel fileChannel =
+          AsynchronousFileChannel.open(path, StandardOpenOption.READ);
+
+      ByteBuffer buffer = ByteBuffer.allocate(1024);
+
+      fileChannel.read(
+          buffer,
+          0,
+          buffer,
+          new CompletionHandler<Integer, ByteBuffer>() {
+
+            @Override
+            public void completed(Integer result, ByteBuffer attachment) {
+              log.append(id);
+            }
+
+            @Override
+            public void failed(Throwable exc, ByteBuffer attachment) {
+              log.append(id);
+              log.append("!");
+            }
+          });
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static void asyncFileWrite(StringBuffer log, int id) {
+    try {
+      Path path = Paths.get("./target/  " + id + ".txt");
+      AsynchronousFileChannel fileChannel =
+          AsynchronousFileChannel.open(path, WRITE, CREATE, DELETE_ON_CLOSE);
+
+      ByteBuffer buffer = ByteBuffer.allocate(2046);
+      buffer.put(log.toString().getBytes());
+      buffer.flip();
+
+      fileChannel.write(
+          buffer,
+          0,
+          buffer,
+          new CompletionHandler<Integer, ByteBuffer>() {
+
+            @Override
+            public void completed(Integer result, ByteBuffer attachment) {
+              log.append(id);
+            }
+
+            @Override
+            public void failed(Throwable exc, ByteBuffer attachment) {
+              log.append(id);
+              log.append("!");
+            }
+          });
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 }
