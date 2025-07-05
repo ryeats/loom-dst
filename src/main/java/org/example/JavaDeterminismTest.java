@@ -28,8 +28,11 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -43,6 +46,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
 import org.example.net.EchoClient;
 import org.example.net.EchoServer;
 import org.example.net.NettyEchoClient;
@@ -50,6 +56,7 @@ import org.example.net.NettyEchoClient;
 public class JavaDeterminismTest {
   static long seed = new SecureRandom().nextLong();
 
+  static FileSystem FS;
   //    static long seed = 6426425772315889486L;
 
   /*
@@ -58,6 +65,13 @@ public class JavaDeterminismTest {
    Disable JIT: -Djava.compiler=NONE
   */
   public static void main(String... args) throws Exception {
+//    FS = FileSystems.getDefault();
+    //Was hoping an in memory file system would make things more deterministic, but it actually made things less deterministic!
+    FS = Jimfs.newFileSystem(Configuration.unix());
+    Path filePath = FS.getPath("./target/test.txt");
+    Files.createDirectories(filePath.getParent());
+    Files.write(filePath, "This is a test".getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
+
     System.setProperty("jdk.virtualThreadScheduler.parallelism", "1");
     System.setProperty("jdk.virtualThreadScheduler.maxPoolSize", "1");
     System.setProperty("jdk.virtualThreadScheduler.minRunnable", "1");
@@ -176,11 +190,11 @@ public class JavaDeterminismTest {
       //      synchronousFileIO(log, i.incrementAndGet());
       //      log.append(id);
 
-      //      asyncFileRead(log,i.incrementAndGet());
-      //      log.append(id);
-      //
-      //      asyncFileWrite(log,i.incrementAndGet());
-      //      log.append(id);
+      asyncFileRead(log,i.incrementAndGet());
+      log.append(id);
+//
+      asyncFileWrite(log,i.incrementAndGet());
+      log.append(id);
 
       lock(log, i.incrementAndGet(), lock);
       log.append(id);
@@ -316,7 +330,7 @@ public class JavaDeterminismTest {
 
   public static void asyncFileRead(StringBuffer log, int id) {
     try {
-      Path path = Paths.get("./license-header.txt");
+      Path path = FS.getPath("./target/test.txt");
       AsynchronousFileChannel fileChannel =
           AsynchronousFileChannel.open(path, StandardOpenOption.READ);
 
@@ -346,7 +360,7 @@ public class JavaDeterminismTest {
 
   public static void asyncFileWrite(StringBuffer log, int id) {
     try {
-      Path path = Paths.get("./target/  " + id + ".txt");
+      Path path = FS.getPath("./target/  " + id + ".txt");
       AsynchronousFileChannel fileChannel =
           AsynchronousFileChannel.open(path, WRITE, CREATE, DELETE_ON_CLOSE);
 
