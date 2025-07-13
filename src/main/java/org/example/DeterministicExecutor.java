@@ -53,12 +53,7 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
     //    System.out.println("Calling drain from "+Thread.currentThread());
     //    System.out.println("Executing "+workQueue.size()+" tasks.");
     for (int count = 0; !workQueue.isEmpty() && count < maxExecutions; count++) {
-      if (shuffle) {
-        Collections.shuffle(workQueue, random);
-      }
-      Runnable task = workQueue.removeFirst();
-      //            Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
-      task.run();
+      removeWorkTask(shuffle).run();
     }
   }
 
@@ -68,6 +63,13 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private Runnable removeWorkTask(boolean shuffle) {
+    if (shuffle) {
+      Collections.shuffle(workQueue, random);
+    }
+    return workQueue.removeFirst();
   }
 
   public int queueSize() {
