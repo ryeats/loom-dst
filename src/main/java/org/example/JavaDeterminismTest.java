@@ -19,8 +19,6 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.DELETE_ON_CLOSE;
 import static java.nio.file.StandardOpenOption.WRITE;
 
-import com.google.common.jimfs.Configuration;
-import com.google.common.jimfs.Jimfs;
 import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -32,6 +30,7 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -64,10 +63,10 @@ public class JavaDeterminismTest {
    Disable JIT: -Djava.compiler=NONE
   */
   public static void main(String... args) throws Exception {
-    //    FS = FileSystems.getDefault();
+    FS = FileSystems.getDefault();
     // Was hoping an in memory file system would make things more deterministic, but it actually
     // made things less deterministic!
-    FS = Jimfs.newFileSystem(Configuration.unix());
+    //    FS = Jimfs.newFileSystem(Configuration.unix());
     Path filePath = FS.getPath("./target/test.txt");
     Files.createDirectories(filePath.getParent());
     Files.write(

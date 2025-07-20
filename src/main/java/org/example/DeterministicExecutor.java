@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.random.RandomGenerator;
+import org.example.time.SimulationTime;
 
 public class DeterministicExecutor implements Executor, AutoCloseable {
   private RandomGenerator random;
@@ -52,6 +53,7 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
   private void internalDrain(boolean shuffle) {
     //    System.out.println("Calling drain from "+Thread.currentThread());
     //    System.out.println("Executing "+workQueue.size()+" tasks.");
+    SimulationTime.time.addAndGet(1);
     for (int count = 0; !workQueue.isEmpty() && count < maxExecutions; count++) {
       removeWorkTask(shuffle).run();
     }
