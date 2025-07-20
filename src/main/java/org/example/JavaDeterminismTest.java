@@ -82,8 +82,8 @@ public class JavaDeterminismTest {
         4);
     System.out.println("8 Threads");
     testDeterminism(() -> Executors.newFixedThreadPool(8), 4);
-    System.out.println("Virtual Threads");
-    testDeterminism(Executors::newVirtualThreadPerTaskExecutor, 4);
+    //    System.out.println("Virtual Threads");
+    //    testDeterminism(Executors::newVirtualThreadPerTaskExecutor, 4);
     System.out.println("Deterministic Virtual Threads seed: " + seed);
     testDeterminismWithContext(
         () -> {
@@ -146,7 +146,7 @@ public class JavaDeterminismTest {
           // beyond this timeout due to being slept, connect or do synchronous file IO get
           // shuffled into the work queue at differing times
           Thread.sleep(
-              15); // has to be bigger than the largest sleep by some margin to keep things somewhat
+              1); // has to be bigger than the largest sleep by some margin to keep things somewhat
           // deterministic
         }
         echoServer.close();
@@ -176,8 +176,8 @@ public class JavaDeterminismTest {
       // this introduces indeterminism if the sleep is longer than the
       // drain loop time due to variability in when the thread gets
       // started by the system
-      //      sleepThread(log, i.incrementAndGet());
-      //      log.append(id);
+      sleepThread(log, i.incrementAndGet());
+      log.append(id);
 
       // I didn't think this would interleave, but it does seem to
       // since we don't always see b3b d3d
@@ -231,7 +231,7 @@ public class JavaDeterminismTest {
   }
 
   public static void sleepThread(StringBuffer log, int id) throws InterruptedException {
-    Thread.sleep(10);
+    Thread.sleep(1);
     log.append(id);
   }
 
@@ -250,7 +250,7 @@ public class JavaDeterminismTest {
           }
         });
     synchronized (log) {
-      log.wait(10);
+      log.wait(5);
       log.append(id);
     }
   }

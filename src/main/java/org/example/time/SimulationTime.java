@@ -19,17 +19,30 @@ import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class SimulationTime {
-  public static final AtomicLong time = new AtomicLong();
+  public static final AtomicLong TIME = timeInstance();
+
+  private static AtomicLong timeInstance() {
+    if (SimulationTime.class.getClassLoader() == null) {
+      return new AtomicLong();
+    }
+    try {
+      Class<?> bootClazz = Class.forName(SimulationTime.class.getCanonicalName(), true, null);
+      return (AtomicLong) bootClazz.getField("TIME").get(null);
+    } catch (ClassNotFoundException | IllegalAccessException | NoSuchFieldException e) {
+      e.printStackTrace();
+    }
+    return new AtomicLong();
+  }
 
   public static long onCurrentTimeMillis() {
-    return time.get();
+    return TIME.get();
   }
 
   public static long onNanoTime() {
-    return time.get() * 1000000;
+    return TIME.get() * 1000000;
   }
 
   public static Instant onInstantNow() {
-    return Instant.ofEpochMilli(time.get());
+    return Instant.ofEpochMilli(TIME.get());
   }
 }

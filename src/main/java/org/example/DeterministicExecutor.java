@@ -53,7 +53,7 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
   private void internalDrain(boolean shuffle) {
     //    System.out.println("Calling drain from "+Thread.currentThread());
     //    System.out.println("Executing "+workQueue.size()+" tasks.");
-    SimulationTime.time.addAndGet(1);
+    SimulationTime.TIME.addAndGet(1);
     for (int count = 0; !workQueue.isEmpty() && count < maxExecutions; count++) {
       removeWorkTask(shuffle).run();
     }

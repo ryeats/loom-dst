@@ -23,9 +23,9 @@ public class TimeTest {
   public static void main(String... args) throws InterruptedException {
 
     System.out.println("Current time of +" + System.currentTimeMillis());
-    SimulationTime.time.incrementAndGet();
+    SimulationTime.TIME.incrementAndGet();
     System.out.println("Current time of +" + System.currentTimeMillis());
-    SimulationTime.time.set(42);
+    SimulationTime.TIME.set(42);
     System.out.println("Current time of +" + System.currentTimeMillis());
     System.out.println("Current time of +" + Instant.now());
     System.out.println("Current time of +" + System.nanoTime());
@@ -42,11 +42,11 @@ public class TimeTest {
         .run();
     System.out.println("main thread");
     Thread.sleep(10);
-    SimulationTime.time.incrementAndGet();
-    SimulationTime.time.incrementAndGet();
-    SimulationTime.time.incrementAndGet();
-    SimulationTime.time.incrementAndGet();
-    SimulationTime.time.incrementAndGet();
+    SimulationTime.TIME.incrementAndGet();
+    SimulationTime.TIME.incrementAndGet();
+    SimulationTime.TIME.incrementAndGet();
+    SimulationTime.TIME.incrementAndGet();
+    SimulationTime.TIME.incrementAndGet();
     Thread.sleep(10);
   }
 }
