@@ -22,14 +22,18 @@ public class SimulationTime {
   public static final AtomicLong TIME = timeInstance();
 
   private static AtomicLong timeInstance() {
+    // There are multiple versions of this class loaded, but we only want one instance of TIME
+    // If this is being called by the boot classloader
     if (SimulationTime.class.getClassLoader() == null) {
       return new AtomicLong();
     }
+    // otherwise, this is the system classloader instance, so try to get TIME from the boot instance
+    // classloader one.
     try {
       Class<?> bootClazz = Class.forName(SimulationTime.class.getCanonicalName(), true, null);
       return (AtomicLong) bootClazz.getField("TIME").get(null);
     } catch (ClassNotFoundException | IllegalAccessException | NoSuchFieldException e) {
-      e.printStackTrace();
+      //      e.printStackTrace();
     }
     return new AtomicLong();
   }

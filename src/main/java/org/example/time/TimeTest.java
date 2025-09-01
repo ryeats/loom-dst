@@ -33,7 +33,7 @@ public class TimeTest {
         .start(
             () -> {
               try {
-                Thread.sleep(1);
+                Thread.sleep(5);
                 System.out.println("slept");
               } catch (InterruptedException e) {
                 throw new RuntimeException(e);
