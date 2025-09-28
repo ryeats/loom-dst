@@ -33,7 +33,7 @@ import java.util.function.Supplier;
 import java.util.random.RandomGenerator;
 import org.example.time.SimulationTime;
 
-public class Simulation implements AutoCloseable {
+public class Simulation {
 
   private final ScheduledThreadPoolExecutor scheduler;
   private final SchedulableVirtualThreadFactory threadFactory;
@@ -59,8 +59,8 @@ public class Simulation implements AutoCloseable {
     random = new Random(this.seed);
     threadFactory = new SchedulableVirtualThreadFactory(new DeterministicVirtualThreadScheduler());
     executorService = Executors.newThreadPerTaskExecutor(threadFactory);
-    //    scheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
-    scheduler = new ScheduledThreadPoolExecutor(0, threadFactory);
+        scheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
+//    scheduler = new ScheduledThreadPoolExecutor(0, threadFactory);
     executorService.submit(this::tick);
     this.execFingerprint = execFingerprint;
   }
@@ -100,6 +100,9 @@ public class Simulation implements AutoCloseable {
   }
 
   private boolean isDone() {
+    if (SimulationTime.TIME.get() >= endTime) {
+      return true;
+    }
     if (stateChecker != null) {
       return stateChecker.get();
     }
@@ -130,7 +133,8 @@ public class Simulation implements AutoCloseable {
           nonDeterminismDetected = true;
         }
       }
-      return Optional.ofNullable(workQueue.remove(pick));
+      Runnable task = workQueue.remove(pick);
+      return Optional.ofNullable(task);
     }
   }
 
@@ -164,11 +168,6 @@ public class Simulation implements AutoCloseable {
 
   public String getExecFingerprint() {
     return execStats.toString();
-  }
-
-  @Override
-  public void close() throws Exception {
-    System.out.println(" " + execStats);
   }
 
   private class DeterministicVirtualThreadScheduler implements Executor {

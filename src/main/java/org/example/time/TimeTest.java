@@ -16,6 +16,7 @@
 package org.example.time;
 
 import java.time.Instant;
+import java.util.concurrent.locks.LockSupport;
 
 public class TimeTest {
 
@@ -32,21 +33,38 @@ public class TimeTest {
     Thread.ofVirtual()
         .start(
             () -> {
-              try {
-                Thread.sleep(5);
+//              try {
+              //The VirtualThread.parkOnCarrierThread parks on a system thread which will use the system scheduler???
+                LockSupport.parkNanos(3000000);
+//                Thread.sleep(5);
                 System.out.println("slept");
-              } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-              }
+//              } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//              }
             })
         .run();
     System.out.println("main thread");
-    Thread.sleep(10);
-    SimulationTime.TIME.incrementAndGet();
-    SimulationTime.TIME.incrementAndGet();
-    SimulationTime.TIME.incrementAndGet();
-    SimulationTime.TIME.incrementAndGet();
+    Thread.sleep(1);
     SimulationTime.TIME.incrementAndGet();
     Thread.sleep(10);
+    System.out.print(".");
+    SimulationTime.TIME.incrementAndGet();
+    Thread.sleep(10);
+    System.out.print(".");
+    SimulationTime.TIME.incrementAndGet();
+    Thread.sleep(10);
+    System.out.print(".");
+    SimulationTime.TIME.incrementAndGet();
+    Thread.sleep(10);
+    System.out.print(".");
+    SimulationTime.TIME.incrementAndGet();
+    Thread.sleep(10);
+    System.out.print(".");
+    Thread.sleep(10);
+    System.out.print(".");
+    while(true)
+    {
+      Thread.sleep(1000);
+    }
   }
 }

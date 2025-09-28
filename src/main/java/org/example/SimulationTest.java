@@ -67,30 +67,29 @@ public class SimulationTest {
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize", "1");
     //    System.setProperty("jdk.virtualThreadScheduler.minRunnable", "1");
     long seed = new SecureRandom().nextLong();
-    //    long seed = 1725203269977196916L;
-    //    long seed = 8750957953740911366L;
     System.out.println("Seed: " + seed + "L");
     String execFingerPrint = null;
     for (int i = 0; i < 100; i++) {
-      try (Simulation simulation = new Simulation(Duration.ofSeconds(30), seed, execFingerPrint)) {
-        LOCK = new ReentrantLock();
-        simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "a"));
-        simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "b"));
-        simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "c"));
-        simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "d"));
-        simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "e"));
+      Simulation simulation = new Simulation(Duration.ofSeconds(30), seed, execFingerPrint);
+      LOCK = new ReentrantLock();
+      simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "a"));
+      simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "b"));
+      simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "c"));
+      simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "d"));
+      simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "e"));
 
-        simulation.start();
-        if (simulation.wasNonDeterminismDetected()) {
-          // Non-deterministic
-          System.out.print("ND ");
-        } else {
-          execFingerPrint = simulation.getExecFingerprint();
-        }
-        System.out.print(LOG);
-        LOG = new StringBuffer();
-        LOCK = new ReentrantLock();
+      simulation.start();
+      if (simulation.wasNonDeterminismDetected()) {
+        // Non-deterministic
+        System.out.print("ND ");
+      } else {
+        execFingerPrint = simulation.getExecFingerprint();
       }
+      System.out.print(LOG);
+      System.out.println(" "+simulation.getExecFingerprint());
+      LOG = new StringBuffer();
+      LOCK = new ReentrantLock();
+      Thread.sleep(1000);
     }
   }
 
@@ -105,8 +104,8 @@ public class SimulationTest {
       // this introduces indeterminism if the sleep is longer than the
       // drain loop time due to variability in when the thread gets
       // started by the system
-      //      sleepThread(i++);
-      //      LOG.append(id);
+//      sleepThread(i++);
+//      LOG.append(id);
 
       // I didn't think this would interleave, but it does seem to
       // since we don't always see b3b d3d

@@ -25,7 +25,7 @@ public class SimulationTime {
     // There are multiple versions of this class loaded, but we only want one instance of TIME
     // If this is being called by the boot classloader
     if (SimulationTime.class.getClassLoader() == null) {
-      return new AtomicLong();
+      return new AtomicLong(1857791008445L);
     }
     // otherwise, this is the system classloader instance, so try to get TIME from the boot instance
     // classloader one.
@@ -35,7 +35,7 @@ public class SimulationTime {
     } catch (ClassNotFoundException | IllegalAccessException | NoSuchFieldException e) {
       //      e.printStackTrace();
     }
-    return new AtomicLong();
+    return new AtomicLong(1857791008445L);
   }
 
   public static long onCurrentTimeMillis() {
