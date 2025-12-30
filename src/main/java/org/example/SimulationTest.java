@@ -86,7 +86,7 @@ public class SimulationTest {
         execFingerPrint = simulation.getExecFingerprint();
       }
       System.out.print(LOG);
-      System.out.println(" "+simulation.getExecFingerprint());
+      System.out.println(" " + simulation.getExecFingerprint());
       LOG = new StringBuffer();
       LOCK = new ReentrantLock();
       Thread.sleep(1000);
@@ -104,8 +104,8 @@ public class SimulationTest {
       // this introduces indeterminism if the sleep is longer than the
       // drain loop time due to variability in when the thread gets
       // started by the system
-//      sleepThread(i++);
-//      LOG.append(id);
+      //      sleepThread(i++);
+      //      LOG.append(id);
 
       // I didn't think this would interleave, but it does seem to
       // since we don't always see b3b d3d

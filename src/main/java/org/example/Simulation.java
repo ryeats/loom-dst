@@ -59,8 +59,8 @@ public class Simulation {
     random = new Random(this.seed);
     threadFactory = new SchedulableVirtualThreadFactory(new DeterministicVirtualThreadScheduler());
     executorService = Executors.newThreadPerTaskExecutor(threadFactory);
-        scheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
-//    scheduler = new ScheduledThreadPoolExecutor(0, threadFactory);
+    scheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
+    //    scheduler = new ScheduledThreadPoolExecutor(0, threadFactory);
     executorService.submit(this::tick);
     this.execFingerprint = execFingerprint;
   }

@@ -33,14 +33,15 @@ public class TimeTest {
     Thread.ofVirtual()
         .start(
             () -> {
-//              try {
-              //The VirtualThread.parkOnCarrierThread parks on a system thread which will use the system scheduler???
-                LockSupport.parkNanos(3000000);
-//                Thread.sleep(5);
-                System.out.println("slept");
-//              } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//              }
+              //              try {
+              // The VirtualThread.parkOnCarrierThread parks on a system thread which will use the
+              // system scheduler???
+              LockSupport.parkNanos(3000000);
+              //                Thread.sleep(5);
+              System.out.println("slept");
+              //              } catch (InterruptedException e) {
+              //                throw new RuntimeException(e);
+              //              }
             })
         .run();
     System.out.println("main thread");
@@ -62,8 +63,7 @@ public class TimeTest {
     System.out.print(".");
     Thread.sleep(10);
     System.out.print(".");
-    while(true)
-    {
+    while (true) {
       Thread.sleep(1000);
     }
   }
