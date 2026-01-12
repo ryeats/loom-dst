@@ -127,7 +127,14 @@ public class SimulationTest {
       lock(i++);
       LOG.append(id);
 
-      //      wait(i++, simulation.getExecutorService());
+      wait(i++);
+      LOG.append(id);
+
+      //Not easy to control the order in which threads are woken up see how the Fray library handles it https://arxiv.org/pdf/2501.12618
+      //      waitNotify(i++, simulation.getExecutorService());
+      //      LOG.append(id);
+
+      //      waitNotifyOne(i++, simulation.getExecutorService());
       //      LOG.append(id);
 
       // this introduces indeterminism I assume because the time it
@@ -168,7 +175,27 @@ public class SimulationTest {
     //        System.out.print(id);
   }
 
-  public static void wait(int id, ExecutorService es) throws InterruptedException {
+  public static void wait(int id) throws InterruptedException {
+    synchronized (LOG) {
+      LOG.wait(2000);
+      LOG.append(id);
+    }
+  }
+
+  public static void waitNotifyAll(int id, ExecutorService es) throws InterruptedException {
+    es.submit(
+            () -> {
+              synchronized (LOG) {
+                LOG.notifyAll(); // Wakes up one waiting thread
+              }
+            });
+    synchronized (LOG) {
+      LOG.wait(5);
+      LOG.append(id);
+    }
+  }
+
+  public static void waitNotifyOne(int id, ExecutorService es) throws InterruptedException {
     es.submit(
         () -> {
           synchronized (LOG) {
