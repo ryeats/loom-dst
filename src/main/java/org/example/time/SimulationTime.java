@@ -16,10 +16,24 @@
 package org.example.time;
 
 import java.time.Instant;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class SimulationTime {
   public static final AtomicLong TIME = timeInstance();
+  public static ScheduledExecutorService scheduler;
+
+  public static void setScheduler(ScheduledExecutorService scheduler) {
+    SimulationTime.scheduler = scheduler;
+    try {
+      Class<?> bootClazz = Class.forName(SimulationTime.class.getCanonicalName(), true, null);
+      bootClazz.getField("scheduler").set(bootClazz, scheduler);
+    } catch (ClassNotFoundException | IllegalAccessException | NoSuchFieldException e) {
+      e.printStackTrace();
+    }
+  }
 
   private static AtomicLong timeInstance() {
     // There are multiple versions of this class loaded, but we only want one instance of TIME
@@ -48,5 +62,17 @@ public class SimulationTime {
 
   public static Instant onInstantNow() {
     return Instant.ofEpochMilli(TIME.get());
+  }
+
+  /*
+  Invoked in the context of the carrier thread after the Continuation yields when parking, blocking on monitor enter, Object.wait, or Thread.yield.
+   */
+  public static Future<?> schedule(Runnable command, long delay, TimeUnit unit) {
+    //    System.out.println("Called schedule");
+    //    if (scheduler == null) {
+    //      System.out.println("scheduler was not set");
+    //      return CompletableFuture.completedFuture(false);
+    //    }
+    return scheduler.schedule(command, delay, unit);
   }
 }

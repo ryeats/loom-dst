@@ -26,7 +26,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -35,7 +35,7 @@ import org.example.time.SimulationTime;
 
 public class Simulation {
 
-  private final ScheduledThreadPoolExecutor scheduler;
+  private final SimulationScheduledExecutor scheduler;
   private final SchedulableVirtualThreadFactory threadFactory;
   private final RandomGenerator random;
   private final ExecutorService executorService;
@@ -59,8 +59,12 @@ public class Simulation {
     random = new Random(this.seed);
     threadFactory = new SchedulableVirtualThreadFactory(new DeterministicVirtualThreadScheduler());
     executorService = Executors.newThreadPerTaskExecutor(threadFactory);
-    scheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
+    scheduler =
+        new SimulationScheduledExecutor(
+            new SimulationClock(SimulationTime::onInstantNow), executorService);
+    //    scheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
     //    scheduler = new ScheduledThreadPoolExecutor(0, threadFactory);
+    SimulationTime.setScheduler(scheduler);
     executorService.submit(this::tick);
     this.execFingerprint = execFingerprint;
   }
@@ -111,10 +115,9 @@ public class Simulation {
 
   private void loop() throws InterruptedException {
     Optional<Runnable> task = getNext();
-    while (task.isPresent() && !isDone()) {
+    while ((task.isPresent() || !scheduler.getQueue().isEmpty()) && !isDone()) {
+      scheduler.tick();
       task.get().run();
-      // TODO some reason sleeping here helps make this more deterministic???
-      Thread.sleep(1);
       task = getNext();
     }
   }
@@ -154,7 +157,7 @@ public class Simulation {
     return threadFactory;
   }
 
-  public ScheduledThreadPoolExecutor getScheduler() {
+  public ScheduledExecutorService getScheduler() {
     return scheduler;
   }
 

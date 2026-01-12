@@ -22,6 +22,7 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
@@ -104,6 +105,7 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
     private final Method onCurrentMillis;
     private final Method onInstantNow;
     private final Method onNanoTime;
+    private final Method schedule;
 
     public TimeInstrumenatorVisitor(ClassVisitor cv) {
       super(Opcodes.ASM9, cv);
@@ -114,6 +116,11 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
         onNanoTime = Method.getMethod(SimulationTime.class.getDeclaredMethod("onNanoTime", null));
         onInstantNow =
             Method.getMethod(SimulationTime.class.getDeclaredMethod("onInstantNow", null));
+        schedule =
+            Method.getMethod(
+                SimulationTime.class.getDeclaredMethod(
+                    "schedule", Runnable.class, long.class, TimeUnit.class));
+
       } catch (NoSuchMethodException e) {
         throw new RuntimeException(e);
       }
@@ -134,6 +141,50 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
             invokeStatic(TIME_CLASS, onCurrentMillis);
           } else if ("java/time/Instant".equals(owner) && "now".equals(name)) {
             invokeStatic(TIME_CLASS, onInstantNow);
+            //          } else if ("java/lang/VirtualThread".equals(owner)
+            //              && "schedule".equals(name)
+            //              &&
+            // "(Ljava/lang/Runnable;JLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/Future;"
+            //                  .equals(descriptor)) {
+            //            System.out.println(
+            //                "opcode:"
+            //                    + opcode
+            //                    + " owner:"
+            //                    + owner
+            //                    + " name:"
+            //                    + name
+            //                    + " descriptor:"
+            //                    + descriptor
+            //                    + " isInterface:"
+            //                    + isInterface);
+            //
+            //            /*
+            //             * Stack before original call:
+            //             *   this
+            //             *   Runnable
+            //             *   long
+            //             *   TimeUnit
+            //             */
+            //
+            //            // Load `this` (caller VirtualThread)
+            //            //              loadThis();
+            //
+            //            invokeStatic(TIME_CLASS, schedule);
+
+          } else if ("java/lang/VirtualThread$DelayedTaskSchedulers".equals(owner)
+              && "schedule".equals(name)) {
+            //            System.out.println(
+            //                "opcode:"
+            //                    + opcode
+            //                    + " owner:"
+            //                    + owner
+            //                    + " name:"
+            //                    + name
+            //                    + " descriptor:"
+            //                    + descriptor
+            //                    + " isInterface:"
+            //                    + isInterface);
+            invokeStatic(TIME_CLASS, schedule);
           } else {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
           }

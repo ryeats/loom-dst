@@ -89,7 +89,7 @@ public class SimulationTest {
       System.out.println(" " + simulation.getExecFingerprint());
       LOG = new StringBuffer();
       LOCK = new ReentrantLock();
-      Thread.sleep(1000);
+      //      Thread.sleep(2000);
     }
   }
 
@@ -98,14 +98,14 @@ public class SimulationTest {
       int i = 0;
       LOG.append(id);
 
-      synchronizedYield(i++);
-      LOG.append(id);
+//      synchronizedYield(i++);
+//      LOG.append(id);
 
       // this introduces indeterminism if the sleep is longer than the
       // drain loop time due to variability in when the thread gets
       // started by the system
-      //      sleepThread(i++);
-      //      LOG.append(id);
+      sleepThread(i++);
+      LOG.append(id);
 
       // I didn't think this would interleave, but it does seem to
       // since we don't always see b3b d3d
@@ -115,8 +115,8 @@ public class SimulationTest {
       // Not useful because virtual threads are captured by synchronous
       // IO so we cannot simulate interleaving, also occasionally
       // causes indeterminism I don't know why though
-      //      synchronousFileIO(i++);
-      //      LOG.append(id);
+      synchronousFileIO(i++);
+      LOG.append(id);
 
       //      asyncFileRead(i++);
       //      LOG.append(id);
@@ -132,15 +132,14 @@ public class SimulationTest {
 
       // this introduces indeterminism I assume because the time it
       // takes to connect is variable
-      //      synchronousNetworkIO(i++);
-      //      LOG.append(id);
+      synchronousNetworkIO(i++);
+      LOG.append(id);
 
-      //      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
-      //      LOG.append(id);
+      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
+      LOG.append(id);
 
-      // TODO Not exactly sure how this introduces indeterminism yet but it does
-      //      syncLocalNetworkIO(i++);
-      //      LOG.append(id);
+      syncLocalNetworkIO(i++);
+      LOG.append(id);
 
       // TODO
       // InputStream.read():
