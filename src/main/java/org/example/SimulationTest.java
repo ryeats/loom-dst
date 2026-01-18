@@ -67,10 +67,11 @@ public class SimulationTest {
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize", "1");
     //    System.setProperty("jdk.virtualThreadScheduler.minRunnable", "1");
     long seed = new SecureRandom().nextLong();
+//    long seed = 876451371170318205L;
     System.out.println("Seed: " + seed + "L");
     String execFingerPrint = null;
     for (int i = 0; i < 100; i++) {
-      Simulation simulation = new Simulation(Duration.ofSeconds(30), seed, execFingerPrint);
+      Simulation simulation = new Simulation(Duration.ofSeconds(60), seed, execFingerPrint);
       LOCK = new ReentrantLock();
       simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "a"));
       simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "b"));
@@ -89,7 +90,6 @@ public class SimulationTest {
       System.out.println(" " + simulation.getExecFingerprint());
       LOG = new StringBuffer();
       LOCK = new ReentrantLock();
-      //      Thread.sleep(2000);
     }
   }
 
@@ -98,13 +98,7 @@ public class SimulationTest {
       int i = 0;
       LOG.append(id);
 
-//      synchronizedYield(i++);
-//      LOG.append(id);
-
-      // this introduces indeterminism if the sleep is longer than the
-      // drain loop time due to variability in when the thread gets
-      // started by the system
-      sleepThread(i++);
+      threadYield(i++);
       LOG.append(id);
 
       // I didn't think this would interleave, but it does seem to
@@ -112,11 +106,37 @@ public class SimulationTest {
       synchronizedMethod(i++);
       LOG.append(id);
 
-      // Not useful because virtual threads are captured by synchronous
-      // IO so we cannot simulate interleaving, also occasionally
-      // causes indeterminism I don't know why though
-      synchronousFileIO(i++);
+      lock(i++);
       LOG.append(id);
+
+      sleepThread(i++);
+      LOG.append(id);
+
+      wait(i++);
+      LOG.append(id);
+
+      // Object wait and object.notifyAll are awoken by a system thread so this is not deterministic
+      //      waitNotifyAll(i++, simulation.getExecutorService());
+      //      LOG.append(id);
+      //
+      //      waitNotifyOne(i++, simulation.getExecutorService());
+      //      LOG.append(id);
+
+      //      // Implicitly calling Object.wait and Object.notifyAll
+      synchronizedYield(i++);
+      LOG.append(id);
+
+      //      synchronousNetworkIO(i++);
+      //      LOG.append(id);
+
+      //      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
+      //      LOG.append(id);
+      //
+      //      syncLocalNetworkIO(i++);
+      //      LOG.append(id);
+
+      //      synchronousFileIO(i++);
+      //      LOG.append(id);
 
       //      asyncFileRead(i++);
       //      LOG.append(id);
@@ -124,31 +144,6 @@ public class SimulationTest {
       //      asyncFileWrite(i++);
       //      LOG.append(id);
 
-      lock(i++);
-      LOG.append(id);
-
-      wait(i++);
-      LOG.append(id);
-
-      //Not easy to control the order in which threads are woken up see how the Fray library handles it https://arxiv.org/pdf/2501.12618
-      //      waitNotify(i++, simulation.getExecutorService());
-      //      LOG.append(id);
-
-      //      waitNotifyOne(i++, simulation.getExecutorService());
-      //      LOG.append(id);
-
-      // this introduces indeterminism I assume because the time it
-      // takes to connect is variable
-      synchronousNetworkIO(i++);
-      LOG.append(id);
-
-      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
-      LOG.append(id);
-
-      syncLocalNetworkIO(i++);
-      LOG.append(id);
-
-      // TODO
       // InputStream.read():
       // OutputStream.write():
       // BlockingQueue.take(): Waits for an element to become available in the queue.
@@ -169,10 +164,14 @@ public class SimulationTest {
     LOG.append(id);
   }
 
+  public static void threadYield(int id) {
+    Thread.yield();
+    LOG.append(id);
+  }
+
   public static synchronized void synchronizedYield(int id) {
     Thread.yield();
     LOG.append(id);
-    //        System.out.print(id);
   }
 
   public static void wait(int id) throws InterruptedException {
@@ -184,11 +183,11 @@ public class SimulationTest {
 
   public static void waitNotifyAll(int id, ExecutorService es) throws InterruptedException {
     es.submit(
-            () -> {
-              synchronized (LOG) {
-                LOG.notifyAll(); // Wakes up one waiting thread
-              }
-            });
+        () -> {
+          synchronized (LOG) {
+            LOG.notifyAll(); // Wakes up one waiting thread
+          }
+        });
     synchronized (LOG) {
       LOG.wait(5);
       LOG.append(id);
