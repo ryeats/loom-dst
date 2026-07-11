@@ -92,10 +92,35 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
       byte[] classfileBuffer) {
 
     ClassReader cr = new ClassReader(classfileBuffer);
+
+    if ("java/lang/VirtualThread".equals(className)) {
+      ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+      RemoveClinitVisitor visitor = new RemoveClinitVisitor(cw);
+      cr.accept(visitor, ClassReader.EXPAND_FRAMES);
+      return cw.toByteArray();
+    }
+
     ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
     ClassVisitor cv = new TimeInstrumenatorVisitor(cw);
     cr.accept(cv, ClassReader.EXPAND_FRAMES);
     return cw.toByteArray();
+  }
+
+  public class RemoveClinitVisitor extends ClassVisitor {
+
+    public RemoveClinitVisitor(ClassVisitor cv) {
+      super(Opcodes.ASM9, cv);
+    }
+
+    @Override
+    public MethodVisitor visitMethod(
+        int access, String name, String descriptor, String signature, String[] exceptions) {
+      // Return null to completely remove the <clinit> method
+      if ("<clinit>".equals(name)) {
+        return null;
+      }
+      return super.visitMethod(access, name, descriptor, signature, exceptions);
+    }
   }
 
   public static class TimeInstrumenatorVisitor extends ClassVisitor {
@@ -130,7 +155,6 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
     public MethodVisitor visitMethod(
         int access, String name, String descriptor, String signature, String[] exceptions) {
       MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-
       return new GeneratorAdapter(Opcodes.ASM9, mv, access, name, descriptor) {
         @Override
         public void visitMethodInsn(
@@ -141,36 +165,6 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
             invokeStatic(TIME_CLASS, onCurrentMillis);
           } else if ("java/time/Instant".equals(owner) && "now".equals(name)) {
             invokeStatic(TIME_CLASS, onInstantNow);
-            //          } else if ("java/lang/VirtualThread".equals(owner)
-            //              && "schedule".equals(name)
-            //              &&
-            // "(Ljava/lang/Runnable;JLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/Future;"
-            //                  .equals(descriptor)) {
-            //            System.out.println(
-            //                "opcode:"
-            //                    + opcode
-            //                    + " owner:"
-            //                    + owner
-            //                    + " name:"
-            //                    + name
-            //                    + " descriptor:"
-            //                    + descriptor
-            //                    + " isInterface:"
-            //                    + isInterface);
-            //
-            //            /*
-            //             * Stack before original call:
-            //             *   this
-            //             *   Runnable
-            //             *   long
-            //             *   TimeUnit
-            //             */
-            //
-            //            // Load `this` (caller VirtualThread)
-            //            //              loadThis();
-            //
-            //            invokeStatic(TIME_CLASS, schedule);
-
           } else if ("java/lang/VirtualThread$DelayedTaskSchedulers".equals(owner)
               && "schedule".equals(name)) {
             //            System.out.println(

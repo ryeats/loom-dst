@@ -67,7 +67,7 @@ public class SimulationTest {
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize", "1");
     //    System.setProperty("jdk.virtualThreadScheduler.minRunnable", "1");
     long seed = new SecureRandom().nextLong();
-//    long seed = 876451371170318205L;
+    //    long seed = 876451371170318205L;
     System.out.println("Seed: " + seed + "L");
     String execFingerPrint = null;
     for (int i = 0; i < 100; i++) {
@@ -116,11 +116,11 @@ public class SimulationTest {
       LOG.append(id);
 
       // Object wait and object.notifyAll are awoken by a system thread so this is not deterministic
-      //      waitNotifyAll(i++, simulation.getExecutorService());
-      //      LOG.append(id);
-      //
-      //      waitNotifyOne(i++, simulation.getExecutorService());
-      //      LOG.append(id);
+      waitNotifyAll(i++, simulation.getExecutorService());
+      LOG.append(id);
+
+      waitNotifyOne(i++, simulation.getExecutorService());
+      LOG.append(id);
 
       //      // Implicitly calling Object.wait and Object.notifyAll
       synchronizedYield(i++);
