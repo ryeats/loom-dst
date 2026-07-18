@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -91,6 +92,7 @@ public class Simulation {
   }
 
   public void start() throws InterruptedException, ExecutionException {
+    interruptThreadByName("VirtualThread-unblocker");
     SimulationTime.TIME.set(0);
     endTime = SimulationTime.TIME.get() + duration.toMillis();
     loop();
@@ -180,5 +182,21 @@ public class Simulation {
         workQueue.add(runnable);
       }
     }
+  }
+
+  public static boolean interruptThreadByName(String threadName) throws InterruptedException {
+    if (threadName == null) return false;
+
+    // Retrieve all active threads in the JVM
+    Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
+
+    for (Thread thread : threadSet) {
+      if (thread.getName().equals(threadName)) {
+        // Signal the thread to stop cooperatively
+        thread.interrupt();
+        return true;
+      }
+    }
+    return false;
   }
 }

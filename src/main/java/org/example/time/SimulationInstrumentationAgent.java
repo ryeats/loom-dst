@@ -68,8 +68,6 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
     inst.addTransformer(new SimulationInstrumentationAgent(), true);
     for (Class<?> clazz : inst.getAllLoadedClasses()) {
       if (inst.isModifiableClass(clazz)) {
-        //      if (inst.isModifiableClass(clazz) &&
-        // !clazz.getCanonicalName().startsWith("org.dst")) {
         try {
           inst.retransformClasses(clazz);
         } catch (Exception ignored) {
@@ -92,35 +90,20 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
       byte[] classfileBuffer) {
 
     ClassReader cr = new ClassReader(classfileBuffer);
-
-    if ("java/lang/VirtualThread".equals(className)) {
-      ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-      RemoveClinitVisitor visitor = new RemoveClinitVisitor(cw);
-      cr.accept(visitor, ClassReader.EXPAND_FRAMES);
-      return cw.toByteArray();
-    }
-
     ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-    ClassVisitor cv = new TimeInstrumenatorVisitor(cw);
+    ClassVisitor cv = cw;
+
+    // For debugging purposes
+    //    StringWriter sw = new StringWriter();
+    //    if ("java/lang/VirtualThread".equals(className)) {
+    //      System.err.println("Adding TraceClassVisitor");
+    //
+    //      PrintWriter pw = new PrintWriter(System.err);
+    //      cv = new TraceClassVisitor(cw, new Textifier(), pw);
+    //    }
+    cv = new TimeInstrumenatorVisitor(cv);
     cr.accept(cv, ClassReader.EXPAND_FRAMES);
     return cw.toByteArray();
-  }
-
-  public class RemoveClinitVisitor extends ClassVisitor {
-
-    public RemoveClinitVisitor(ClassVisitor cv) {
-      super(Opcodes.ASM9, cv);
-    }
-
-    @Override
-    public MethodVisitor visitMethod(
-        int access, String name, String descriptor, String signature, String[] exceptions) {
-      // Return null to completely remove the <clinit> method
-      if ("<clinit>".equals(name)) {
-        return null;
-      }
-      return super.visitMethod(access, name, descriptor, signature, exceptions);
-    }
   }
 
   public static class TimeInstrumenatorVisitor extends ClassVisitor {
@@ -131,6 +114,7 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
     private final Method onInstantNow;
     private final Method onNanoTime;
     private final Method schedule;
+    private String className = "";
 
     public TimeInstrumenatorVisitor(ClassVisitor cv) {
       super(Opcodes.ASM9, cv);
@@ -152,9 +136,44 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
     }
 
     @Override
+    public void visit(
+        int version,
+        int access,
+        String name,
+        String signature,
+        String superName,
+        String[] interfaces) {
+      this.className = name;
+      super.visit(version, access, name, signature, superName, interfaces);
+    }
+
+    @Override
     public MethodVisitor visitMethod(
         int access, String name, String descriptor, String signature, String[] exceptions) {
       MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
+      if ("java/lang/VirtualThread".equals(className) && "<clinit>".equals(name)) {
+        // Return a visitor that overrides everything and replaces the body with a no-op (RETURN)
+        return new MethodVisitor(Opcodes.ASM9, mv) {
+
+          // TODO this stops the not determinisim from Object.wait BUT we need a way to find those
+          // waiting threads and deterministically start them when they are unblocked
+          @Override
+          public void visitMethodInsn(
+              int opcode, String owner, String name, String descriptor, boolean isInterface) {
+            // Intercept any call to Thread.start()
+            if (opcode == Opcodes.INVOKEVIRTUAL
+                && "java/lang/Thread".equals(owner)
+                && "start".equals(name)
+                && "()V".equals(descriptor)) {
+
+              super.visitInsn(Opcodes.POP);
+              return; // Skip visiting the actual instruction
+            }
+
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+          }
+        };
+      }
       return new GeneratorAdapter(Opcodes.ASM9, mv, access, name, descriptor) {
         @Override
         public void visitMethodInsn(
