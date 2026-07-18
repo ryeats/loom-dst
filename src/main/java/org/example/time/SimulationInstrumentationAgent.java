@@ -158,8 +158,6 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
         // Return a visitor that overrides everything and replaces the body with a no-op (RETURN)
         return new MethodVisitor(Opcodes.ASM9, mv) {
 
-          // TODO this stops the not determinisim from Object.wait BUT we need a way to find those
-          // waiting threads and deterministically start them when they are unblocked
           @Override
           public void visitMethodInsn(
               int opcode, String owner, String name, String descriptor, boolean isInterface) {

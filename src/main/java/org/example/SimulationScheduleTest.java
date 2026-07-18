@@ -28,10 +28,10 @@ public class SimulationScheduleTest {
     for (int i = 0; i < 1; i++) {
       Simulation simulation = new Simulation(Duration.ofSeconds(30), seed, execFingerPrint);
       simulation.scheduleTestTask(() -> testSchedule("a"), Duration.ofMillis(2000));
-      //      simulation.scheduleTestTask(() -> testSchedule("b"),Duration.ofMillis(2000));
-      //      simulation.scheduleTestTask(() -> testSchedule("c"),Duration.ofMillis(3000));
-      //      simulation.scheduleTestTask(() -> testSchedule("d"),Duration.ofMillis(1000));
-      //      simulation.scheduleTestTask(() -> testSchedule("e"),Duration.ofMillis(2000));
+      simulation.scheduleTestTask(() -> testSchedule("b"),Duration.ofMillis(2000));
+      simulation.scheduleTestTask(() -> testSchedule("c"),Duration.ofMillis(3000));
+      simulation.scheduleTestTask(() -> testSchedule("d"),Duration.ofMillis(1000));
+      simulation.scheduleTestTask(() -> testSchedule("e"),Duration.ofMillis(2000));
       simulation.start();
       if (simulation.wasNonDeterminismDetected()) {
         // Non-deterministic

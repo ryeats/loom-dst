@@ -124,7 +124,6 @@ public class SchedulableVirtualThreadFactory implements ThreadFactory {
     }
   }
 
-
   public static void unblockVirtualThread(Object vThread) {
     try {
       VIRTUAL_THREAD_UNBLOCK.invoke(vThread);
@@ -143,7 +142,7 @@ public class SchedulableVirtualThreadFactory implements ThreadFactory {
 
   public static boolean compareAndSetOnWaitingList(Object thread, boolean compare, boolean set) {
     try {
-      return  (boolean) COMPARE_AND_SET_ON_WAITING_LIST.invoke(thread, compare, set);
+      return (boolean) COMPARE_AND_SET_ON_WAITING_LIST.invoke(thread, compare, set);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

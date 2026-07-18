@@ -129,21 +129,21 @@ public class SimulationTest {
       synchronousFileIO(i++);
       LOG.append(id);
 
-      //works just commenting it out since it actually hits the network
-//      synchronousNetworkIO(i++);
-//      LOG.append(id);
+      // works just commenting it out since it actually hits the network
+      //      synchronousNetworkIO(i++);
+      //      LOG.append(id);
 
-//      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
-//      LOG.append(id);
+      //      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
+      //      LOG.append(id);
 
-//      syncLocalNetworkIO(i++);
-//      LOG.append(id);
+      //      syncLocalNetworkIO(i++);
+      //      LOG.append(id);
 
-//      asyncFileRead(i++);
-//      LOG.append(id);
+      //      asyncFileRead(i++);
+      //      LOG.append(id);
 
-//      asyncFileWrite(i++);
-//      LOG.append(id);
+      //      asyncFileWrite(i++);
+      //      LOG.append(id);
 
       // InputStream.read():
       // OutputStream.write():
