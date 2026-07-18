@@ -16,6 +16,7 @@
 package org.example;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.Executor;
@@ -26,8 +27,11 @@ public class SchedulableVirtualThreadFactory implements ThreadFactory {
   private static final Class<?> VIRTUAL_THREAD_CLASS;
   private static final Constructor<?> VIRTUAL_THREAD_CONSTRUCTOR;
   private static final Method VIRTUAL_THREAD_UEH_SETTER;
+  private static final Method VIRTUAL_THREAD_UNBLOCK;
+  private static final Method COMPARE_AND_SET_ON_WAITING_LIST;
   private static final Thread.UncaughtExceptionHandler DEFAULT_UNCAUGHT_EXCEPTION_HANDLER =
       new DefaultUncaughtExceptionHandler();
+  private static final Field ON_WAITING_LIST;
 
   static {
     try {
@@ -44,6 +48,20 @@ public class SchedulableVirtualThreadFactory implements ThreadFactory {
               "uncaughtExceptionHandler", Thread.UncaughtExceptionHandler.class);
       uehSetter.setAccessible(true);
       VIRTUAL_THREAD_UEH_SETTER = uehSetter;
+
+      Method virtualThreadUnblock = VIRTUAL_THREAD_CLASS.getDeclaredMethod("unblock");
+      virtualThreadUnblock.setAccessible(true);
+      VIRTUAL_THREAD_UNBLOCK = virtualThreadUnblock;
+
+      Method compareAndSetOnWaitingList =
+          VIRTUAL_THREAD_CLASS.getDeclaredMethod(
+              "compareAndSetOnWaitingList", boolean.class, boolean.class);
+      compareAndSetOnWaitingList.setAccessible(true);
+      COMPARE_AND_SET_ON_WAITING_LIST = compareAndSetOnWaitingList;
+
+      Field onWaitingList = VIRTUAL_THREAD_CLASS.getDeclaredField("onWaitingList");
+      onWaitingList.setAccessible(true);
+      ON_WAITING_LIST = onWaitingList;
 
     } catch (Exception e) {
       throw new InternalError(e);
@@ -101,6 +119,31 @@ public class SchedulableVirtualThreadFactory implements ThreadFactory {
   protected void setUncaughtExceptionHandler(Thread t, Thread.UncaughtExceptionHandler ueh) {
     try {
       VIRTUAL_THREAD_UEH_SETTER.invoke(t, ueh);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+
+  public static void unblockVirtualThread(Object vThread) {
+    try {
+      VIRTUAL_THREAD_UNBLOCK.invoke(vThread);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static boolean isOnWaitingList(Object vThread) {
+    try {
+      return ON_WAITING_LIST.getBoolean(vThread);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static boolean compareAndSetOnWaitingList(Object thread, boolean compare, boolean set) {
+    try {
+      return  (boolean) COMPARE_AND_SET_ON_WAITING_LIST.invoke(thread, compare, set);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

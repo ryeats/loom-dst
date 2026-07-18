@@ -114,6 +114,7 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
     private final Method onInstantNow;
     private final Method onNanoTime;
     private final Method schedule;
+    private final Method afterYieldHook;
     private String className = "";
 
     public TimeInstrumenatorVisitor(ClassVisitor cv) {
@@ -129,7 +130,9 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
             Method.getMethod(
                 SimulationTime.class.getDeclaredMethod(
                     "schedule", Runnable.class, long.class, TimeUnit.class));
-
+        afterYieldHook =
+            Method.getMethod(
+                SimulationTime.class.getDeclaredMethod("afterYieldHook", Object.class));
       } catch (NoSuchMethodException e) {
         throw new RuntimeException(e);
       }
@@ -198,6 +201,10 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
             //                    + " isInterface:"
             //                    + isInterface);
             invokeStatic(TIME_CLASS, schedule);
+          } else if ("java/lang/VirtualThread".equals(owner) && "afterYield".equals(name)) {
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+            loadThis();
+            invokeStatic(TIME_CLASS, afterYieldHook);
           } else {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
           }

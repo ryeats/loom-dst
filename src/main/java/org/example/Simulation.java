@@ -15,9 +15,15 @@
  */
 package org.example;
 
+import static java.lang.Thread.State.BLOCKED;
+import static java.lang.Thread.State.TIMED_WAITING;
+import static java.lang.Thread.State.WAITING;
+import static org.example.SchedulableVirtualThreadFactory.compareAndSetOnWaitingList;
+
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -66,7 +72,7 @@ public class Simulation {
     //    scheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
     //    scheduler = new ScheduledThreadPoolExecutor(0, threadFactory);
     SimulationTime.setScheduler(scheduler);
-    executorService.submit(this::tick);
+    workQueue.add(this::tick);
     this.execFingerprint = execFingerprint;
   }
 
@@ -101,7 +107,7 @@ public class Simulation {
   private void tick() {
     SimulationTime.TIME.addAndGet(1000);
     if (SimulationTime.TIME.get() < endTime) {
-      executorService.submit(this::tick);
+      workQueue.add(this::tick);
     }
   }
 
@@ -119,8 +125,27 @@ public class Simulation {
     Optional<Runnable> task = getNext();
     while ((task.isPresent() || !scheduler.getQueue().isEmpty()) && !isDone()) {
       scheduler.tick();
-      task.get().run();
+      checkThreadsToUnblock();
+      task.ifPresent(Runnable::run);
       task = getNext();
+    }
+  }
+
+  private void checkThreadsToUnblock() {
+    Iterator<Thread> iter = SimulationTime.BLOCKED_THREADS.iterator();
+    while (iter.hasNext()) {
+      Thread thread = iter.next();
+      // TODO virtual thread state of BLOCKING or BLOCKED is equivalent to Thread.getState()
+      if (thread.getState().equals(WAITING)
+          || thread.getState().equals(BLOCKED)
+          || thread.getState().equals(TIMED_WAITING)) {
+        if (SchedulableVirtualThreadFactory.isOnWaitingList(thread)
+            && compareAndSetOnWaitingList(thread, true, false)) {
+          SchedulableVirtualThreadFactory.unblockVirtualThread(thread);
+        }
+      } else {
+        iter.remove();
+      }
     }
   }
 
