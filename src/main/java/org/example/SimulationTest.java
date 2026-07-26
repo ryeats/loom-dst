@@ -36,11 +36,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.example.net.EchoClient;
 import org.example.net.NettyEchoClient;
+import org.example.time.SimulationRandom;
 
 /*
 
@@ -68,10 +70,10 @@ public class SimulationTest {
     //    System.setProperty("jdk.virtualThreadScheduler.minRunnable", "1");
     long seed = new SecureRandom().nextLong();
     //    long seed = 876451371170318205L;
-    System.out.println("Seed: " + seed + "L");
+    System.out.println("Seed: " + new SimulationRandom().getSimulationSeed() + "L");
     String execFingerPrint = null;
     for (int i = 0; i < 100; i++) {
-      Simulation simulation = new Simulation(Duration.ofSeconds(60), seed, execFingerPrint);
+      Simulation simulation = new Simulation(Duration.ofSeconds(60), execFingerPrint);
       LOCK = new ReentrantLock();
       simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "a"));
       simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "b"));
@@ -126,6 +128,12 @@ public class SimulationTest {
       synchronizedYield(i++);
       LOG.append(id);
 
+      randomYield(i++);
+      LOG.append(id);
+
+      //      secureRandomYield(i++);
+      //      LOG.append(id);
+
       synchronousFileIO(i++);
       LOG.append(id);
 
@@ -167,6 +175,24 @@ public class SimulationTest {
 
   public static void threadYield(int id) {
     Thread.yield();
+    LOG.append(id);
+  }
+
+  // Most random won't have an observable impact on execution order unless it triggers a failure so
+  // we will simulate an impact by yielding a random number of times
+  public static void randomYield(int id) {
+    Random rand = new Random();
+    while (rand.nextBoolean()) {
+      Thread.yield();
+    }
+    LOG.append(id);
+  }
+
+  public static void secureRandomYield(int id) {
+    SecureRandom sRand = new SecureRandom();
+    while (sRand.nextBoolean()) {
+      Thread.yield();
+    }
     LOG.append(id);
   }
 

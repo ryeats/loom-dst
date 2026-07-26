@@ -55,6 +55,19 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
           Objects.requireNonNull(in).transferTo(jos);
         }
         jos.closeEntry();
+        // TODO is this needed at bootstrap time?
+        //        entryName =
+        //            SimulationRandom.class.getCanonicalName().replace(".", "/")
+        //                + ".class"; // Full class path
+        //        entry = new JarEntry(entryName);
+        //        jos.putNextEntry(entry);
+        //        try (InputStream in =
+        //            SimulationRandom.class.getResourceAsStream(
+        //                "/" + SimulationRandom.class.getCanonicalName().replace(".", "/") +
+        // ".class")) {
+        //          Objects.requireNonNull(in).transferTo(jos);
+        //        }
+        //        jos.closeEntry();
       }
 
       // Add the temporary JAR to the bootstrap classloader's search path
@@ -70,7 +83,8 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
       if (inst.isModifiableClass(clazz)) {
         try {
           inst.retransformClasses(clazz);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+          e.printStackTrace();
         }
       }
     }
@@ -95,7 +109,7 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
 
     // For debugging purposes
     //    StringWriter sw = new StringWriter();
-    //    if ("java/lang/VirtualThread".equals(className)) {
+    //    if ("org/example/Simulation".equals(className)) {
     //      System.err.println("Adding TraceClassVisitor");
     //
     //      PrintWriter pw = new PrintWriter(System.err);
@@ -115,6 +129,7 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
     private final Method onNanoTime;
     private final Method schedule;
     private final Method afterYieldHook;
+    private final Method getRandom;
     private String className = "";
 
     public TimeInstrumenatorVisitor(ClassVisitor cv) {
@@ -126,6 +141,7 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
         onNanoTime = Method.getMethod(SimulationTime.class.getDeclaredMethod("onNanoTime", null));
         onInstantNow =
             Method.getMethod(SimulationTime.class.getDeclaredMethod("onInstantNow", null));
+        getRandom = Method.getMethod(SimulationRandom.class.getDeclaredMethod("getRandom", null));
         schedule =
             Method.getMethod(
                 SimulationTime.class.getDeclaredMethod(
@@ -154,6 +170,9 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
     public MethodVisitor visitMethod(
         int access, String name, String descriptor, String signature, String[] exceptions) {
       MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
+      if (className.equals("org/example/time/SimulationRandom")) {
+        return mv;
+      }
       if ("java/lang/VirtualThread".equals(className) && "<clinit>".equals(name)) {
         // Return a visitor that overrides everything and replaces the body with a no-op (RETURN)
         return new MethodVisitor(Opcodes.ASM9, mv) {
@@ -176,6 +195,28 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
         };
       }
       return new GeneratorAdapter(Opcodes.ASM9, mv, access, name, descriptor) {
+        private boolean replacingRandom;
+
+        // Remove new Random()
+        @Override
+        public void visitTypeInsn(int opcode, String type) {
+          if (opcode == Opcodes.NEW && type.equals("java/util/Random")) {
+            replacingRandom = true;
+            return;
+          }
+
+          super.visitTypeInsn(opcode, type);
+        }
+
+        // Remove new Random()
+        @Override
+        public void visitInsn(int opcode) {
+          if (replacingRandom && opcode == Opcodes.DUP) {
+            return;
+          }
+          super.visitInsn(opcode);
+        }
+
         @Override
         public void visitMethodInsn(
             int opcode, String owner, String name, String descriptor, boolean isInterface) {
@@ -203,6 +244,22 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
             loadThis();
             invokeStatic(TIME_CLASS, afterYieldHook);
+          } else if (replacingRandom
+              && opcode == Opcodes.INVOKESPECIAL
+              && owner.equals("java/util/Random")
+              && name.equals("<init>")) {
+            // Remove constructor args Random(long seed)
+            Type[] args = Type.getArgumentTypes(descriptor);
+            for (int i = args.length - 1; i >= 0; i--) {
+              if (args[i].getSize() == 2) {
+                pop2();
+              } else {
+                pop();
+              }
+            }
+            // replace with our single instance of random
+            invokeStatic(Type.getType(SimulationRandom.class), getRandom);
+            replacingRandom = false;
           } else {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
           }

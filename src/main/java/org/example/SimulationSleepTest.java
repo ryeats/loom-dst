@@ -38,7 +38,7 @@ public class SimulationSleepTest {
     System.out.println("Seed: " + seed + "L");
     String execFingerPrint = null;
     for (int i = 0; i < 100; i++) {
-      Simulation simulation = new Simulation(Duration.ofSeconds(30), seed, execFingerPrint);
+      Simulation simulation = new Simulation(Duration.ofSeconds(30), execFingerPrint);
       simulation.scheduleTestTask(() -> doubleSleep("a", 2000, 1000));
       simulation.scheduleTestTask(() -> doubleSleep("b", 2000, 2000));
       simulation.scheduleTestTask(() -> doubleSleep("c", 3000, 1000));

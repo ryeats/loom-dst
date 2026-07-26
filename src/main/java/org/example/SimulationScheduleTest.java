@@ -26,7 +26,7 @@ public class SimulationScheduleTest {
     String execFingerPrint = null;
     //    for (int i = 0; i < 100; i++) {
     for (int i = 0; i < 1; i++) {
-      Simulation simulation = new Simulation(Duration.ofSeconds(30), seed, execFingerPrint);
+      Simulation simulation = new Simulation(Duration.ofSeconds(30), execFingerPrint);
       simulation.scheduleTestTask(() -> testSchedule("a"), Duration.ofMillis(2000));
       simulation.scheduleTestTask(() -> testSchedule("b"), Duration.ofMillis(2000));
       simulation.scheduleTestTask(() -> testSchedule("c"), Duration.ofMillis(3000));

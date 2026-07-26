@@ -20,13 +20,11 @@ import static java.lang.Thread.State.TIMED_WAITING;
 import static java.lang.Thread.State.WAITING;
 import static org.example.SchedulableVirtualThreadFactory.compareAndSetOnWaitingList;
 
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -38,16 +36,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.random.RandomGenerator;
+import org.example.time.SimulationRandom;
 import org.example.time.SimulationTime;
 
 public class Simulation {
 
   private final SimulationScheduledExecutor scheduler;
   private final SchedulableVirtualThreadFactory threadFactory;
-  private final RandomGenerator random;
+  private final SimulationRandom random = new SimulationRandom();
   private final ExecutorService executorService;
   private final Duration duration;
-  private final long seed;
   private final String execFingerprint;
   private long endTime;
   private final List<Runnable> workQueue = new ArrayList<>(30);
@@ -57,13 +55,12 @@ public class Simulation {
   private final List<Future<?>> testTasks = new ArrayList<>();
 
   public Simulation(Duration simulationTimeDuration) {
-    this(simulationTimeDuration, null, null);
+    this(simulationTimeDuration, null);
   }
 
-  public Simulation(Duration simulationTimeDuration, Long seed, String execFingerprint) {
+  public Simulation(Duration simulationTimeDuration, String execFingerprint) {
     this.duration = simulationTimeDuration;
-    this.seed = seed == null ? new SecureRandom().nextLong() : seed;
-    random = new Random(this.seed);
+    random.resetSeed();
     threadFactory = new SchedulableVirtualThreadFactory(new DeterministicVirtualThreadScheduler());
     executorService = Executors.newThreadPerTaskExecutor(threadFactory);
     scheduler =
@@ -189,7 +186,7 @@ public class Simulation {
   }
 
   public long getSeed() {
-    return seed;
+    return random.getSimulationSeed();
   }
 
   public boolean wasNonDeterminismDetected() {
