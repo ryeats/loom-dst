@@ -86,10 +86,10 @@ public class SimulationTest {
         // Non-deterministic
         System.out.print("ND ");
       } else {
-        execFingerPrint = simulation.getExecFingerprint();
+        execFingerPrint = simulation.getStepTaskLog();
       }
       System.out.print(LOG);
-      System.out.println(" " + simulation.getExecFingerprint());
+      System.out.println(" " + simulation.getDeterminismStats().hashCode());
       LOG = new StringBuffer();
       LOCK = new ReentrantLock();
     }
@@ -141,6 +141,7 @@ public class SimulationTest {
       //      synchronousNetworkIO(i++);
       //      LOG.append(id);
 
+      // TODO class loading issue need to fix with something like what byte buddy uses
       //      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
       //      LOG.append(id);
 

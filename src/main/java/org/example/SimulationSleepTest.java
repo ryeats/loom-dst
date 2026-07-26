@@ -49,9 +49,9 @@ public class SimulationSleepTest {
         // Non-deterministic
         System.out.print("ND ");
       } else {
-        execFingerPrint = simulation.getExecFingerprint();
+        execFingerPrint = simulation.getStepTaskLog();
       }
-      System.out.println(simulation.getExecFingerprint());
+      System.out.println(simulation.getStepTaskLog());
     }
   }
 

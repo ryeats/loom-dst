@@ -49,7 +49,7 @@ public class Simulation {
   private final String execFingerprint;
   private long endTime;
   private final List<Runnable> workQueue = new ArrayList<>(30);
-  private final StringBuffer execStats = new StringBuffer();
+  private final StringBuffer stepTaskLog = new StringBuffer();
   private boolean nonDeterminismDetected;
   private Supplier<Boolean> stateChecker = null;
   private final List<Future<?>> testTasks = new ArrayList<>();
@@ -154,9 +154,9 @@ public class Simulation {
 
       int size = workQueue.size();
       int pick = random.nextInt(size);
-      execStats.append(size);
+      stepTaskLog.append(size);
       if (execFingerprint != null) {
-        if (!execFingerprint.startsWith(execStats.toString())) {
+        if (!execFingerprint.startsWith(stepTaskLog.toString())) {
           nonDeterminismDetected = true;
         }
       }
@@ -193,8 +193,13 @@ public class Simulation {
     return nonDeterminismDetected;
   }
 
-  public String getExecFingerprint() {
-    return execStats.toString();
+  public String getStepTaskLog() {
+    return stepTaskLog.toString();
+  }
+
+  public DeterminismStats getDeterminismStats() {
+    return new DeterminismStats(
+        SimulationTime.TIME.get(), stepTaskLog.toString(), random.nextInt());
   }
 
   private class DeterministicVirtualThreadScheduler implements Executor {
@@ -221,4 +226,6 @@ public class Simulation {
     }
     return false;
   }
+
+  public record DeterminismStats(long simRuntime, String stepTaskLog, int lastRand) {}
 }
