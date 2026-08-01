@@ -38,6 +38,10 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.example.net.EchoClient;
@@ -137,21 +141,30 @@ public class SimulationTest {
       synchronousFileIO(i++);
       LOG.append(id);
 
-      // works just commenting it out since it actually hits the network
-      //      synchronousNetworkIO(i++);
+      // TODO this isn't reliable? is time not getting replaced in the JDK consistently
+      //      spawnScheduledThread(i++);
       //      LOG.append(id);
+
+      spawnThread(i++);
+      LOG.append(id);
 
       // TODO class loading issue need to fix with something like what byte buddy uses
       //      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
       //      LOG.append(id);
 
+//      asyncFileWrite(i++);
+//      LOG.append(id);
+//
+//      asyncFileRead(i++);
+//      LOG.append(id);
+
+      // Below are a bunch of tests that will obviously introduce some level of indeterminism in
+      // order to confirm that it can be detected
+
+      //      synchronousNetworkIO(i++);
+      //      LOG.append(id);
+
       //      syncLocalNetworkIO(i++);
-      //      LOG.append(id);
-
-      //      asyncFileRead(i++);
-      //      LOG.append(id);
-
-      //      asyncFileWrite(i++);
       //      LOG.append(id);
 
       // InputStream.read():
@@ -200,6 +213,34 @@ public class SimulationTest {
   public static synchronized void synchronizedYield(int id) {
     Thread.yield();
     LOG.append(id);
+  }
+
+  public static synchronized void spawnThread(int id) throws InterruptedException {
+    ThreadFactory tf = Executors.defaultThreadFactory();
+    try (ExecutorService es = Executors.newFixedThreadPool(1, tf)) {
+      es.submit(
+          () -> {
+            LOG.append(id);
+          });
+      es.shutdown();
+      es.awaitTermination(1000, TimeUnit.SECONDS);
+    }
+  }
+
+  public static synchronized void spawnScheduledThread(int id)
+      throws InterruptedException {
+        ThreadFactory tf = Executors.defaultThreadFactory();
+//    ThreadFactory tf = Thread.ofVirtual().factory();
+    try (ScheduledExecutorService es = Executors.newSingleThreadScheduledExecutor(tf)) {
+      es.schedule(
+          () -> {
+            LOG.append(id);
+          },
+          1,
+          TimeUnit.SECONDS);
+      es.shutdown();
+      es.awaitTermination(1000, TimeUnit.SECONDS);
+    }
   }
 
   public static void wait(int id) throws InterruptedException {

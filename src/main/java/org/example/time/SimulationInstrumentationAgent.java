@@ -55,19 +55,6 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
           Objects.requireNonNull(in).transferTo(jos);
         }
         jos.closeEntry();
-        // TODO is this needed at bootstrap time?
-        //        entryName =
-        //            SimulationRandom.class.getCanonicalName().replace(".", "/")
-        //                + ".class"; // Full class path
-        //        entry = new JarEntry(entryName);
-        //        jos.putNextEntry(entry);
-        //        try (InputStream in =
-        //            SimulationRandom.class.getResourceAsStream(
-        //                "/" + SimulationRandom.class.getCanonicalName().replace(".", "/") +
-        // ".class")) {
-        //          Objects.requireNonNull(in).transferTo(jos);
-        //        }
-        //        jos.closeEntry();
       }
 
       // Add the temporary JAR to the bootstrap classloader's search path
@@ -122,14 +109,17 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
 
   public static class TimeInstrumenatorVisitor extends ClassVisitor {
 
-    public static final Type TIME_CLASS =
-        Type.getObjectType(SimulationTime.class.getName().replace('.', '/'));
+    public static final Type TIME_CLASS = Type.getObjectType(SimulationTime.class.getName().replace('.', '/'));
+    public static final Type THREAD_CLASS = Type.getObjectType(Thread.class.getName().replace('.', '/'));
+    public static final Type OF_VIRTUAL_CLASS = Type.getObjectType(Thread.Builder.OfVirtual.class.getName().replace('.', '/'));
     private final Method onCurrentMillis;
     private final Method onInstantNow;
     private final Method onNanoTime;
     private final Method schedule;
     private final Method afterYieldHook;
     private final Method getRandom;
+    private final Method ofVirtual;
+    private final Method factory;
     private String className = "";
 
     public TimeInstrumenatorVisitor(ClassVisitor cv) {
@@ -139,6 +129,8 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
         onCurrentMillis =
             Method.getMethod(SimulationTime.class.getDeclaredMethod("onCurrentTimeMillis", null));
         onNanoTime = Method.getMethod(SimulationTime.class.getDeclaredMethod("onNanoTime", null));
+        ofVirtual = Method.getMethod(Thread.class.getDeclaredMethod("ofVirtual"));
+        factory = Method.getMethod(Thread.Builder.class.getDeclaredMethod("factory"));
         onInstantNow =
             Method.getMethod(SimulationTime.class.getDeclaredMethod("onInstantNow", null));
         getRandom = Method.getMethod(SimulationRandom.class.getDeclaredMethod("getRandom", null));
@@ -260,6 +252,11 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
             // replace with our single instance of random
             invokeStatic(Type.getType(SimulationRandom.class), getRandom);
             replacingRandom = false;
+          } else if ("java/util/concurrent/Executors".equals(owner)
+              && "defaultThreadFactory".equals(name)) {
+            // Replace with: Thread.ofVirtual().factory()
+            invokeStatic(THREAD_CLASS,ofVirtual);
+            invokeInterface(OF_VIRTUAL_CLASS,factory);
           } else {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
           }
