@@ -19,6 +19,7 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.DELETE_ON_CLOSE;
 import static java.nio.file.StandardOpenOption.WRITE;
 
+import com.github.marschall.memoryfilesystem.MemoryFileSystemBuilder;
 import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -30,7 +31,6 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -60,10 +60,11 @@ public class SimulationTest {
   private static Lock LOCK = new ReentrantLock();
 
   public static void main(String... args) throws Exception {
-    FS = FileSystems.getDefault();
+    //    FS = FileSystems.getDefault();
     // Was hoping an in memory file system would make things more deterministic, but it actually
     // made things less deterministic!
-    //        FS = Jimfs.newFileSystem(Configuration.unix());
+    //    FS = Jimfs.newFileSystem(Configuration.unix());
+    FS = MemoryFileSystemBuilder.newEmpty().build();
     Path filePath = FS.getPath("./target/test.txt");
     Files.createDirectories(filePath.getParent());
     Files.write(
@@ -135,13 +136,14 @@ public class SimulationTest {
       randomYield(i++);
       LOG.append(id);
 
+      // TODO implement SecureRandomSpi
       //      secureRandomYield(i++);
       //      LOG.append(id);
 
       synchronousFileIO(i++);
       LOG.append(id);
 
-      // TODO this isn't reliable? is time not getting replaced in the JDK consistently
+      // TODO this isn't reliable?
       //      spawnScheduledThread(i++);
       //      LOG.append(id);
 
@@ -152,11 +154,12 @@ public class SimulationTest {
       //      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
       //      LOG.append(id);
 
-//      asyncFileWrite(i++);
-//      LOG.append(id);
-//
-//      asyncFileRead(i++);
-//      LOG.append(id);
+      // TODO the log output is wierd i am not sure if it is a test issue or indeterminism
+      //      asyncFileWrite(i++);
+      //      LOG.append(id);
+      //
+      //      asyncFileRead(i++);
+      //      LOG.append(id);
 
       // Below are a bunch of tests that will obviously introduce some level of indeterminism in
       // order to confirm that it can be detected
@@ -227,10 +230,9 @@ public class SimulationTest {
     }
   }
 
-  public static synchronized void spawnScheduledThread(int id)
-      throws InterruptedException {
-        ThreadFactory tf = Executors.defaultThreadFactory();
-//    ThreadFactory tf = Thread.ofVirtual().factory();
+  public static synchronized void spawnScheduledThread(int id) throws InterruptedException {
+    ThreadFactory tf = Executors.defaultThreadFactory();
+    //    ThreadFactory tf = Thread.ofVirtual().factory();
     try (ScheduledExecutorService es = Executors.newSingleThreadScheduledExecutor(tf)) {
       es.schedule(
           () -> {
