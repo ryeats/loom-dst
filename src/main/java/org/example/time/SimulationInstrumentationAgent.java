@@ -91,7 +91,7 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
       byte[] classfileBuffer) {
 
     ClassReader cr = new ClassReader(classfileBuffer);
-    ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+    ClassWriter cw = new CachingComputeClassWriter(ClassWriter.COMPUTE_FRAMES);
     ClassVisitor cv = cw;
 
     // For debugging purposes
@@ -109,9 +109,12 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
 
   public static class TimeInstrumenatorVisitor extends ClassVisitor {
 
-    public static final Type TIME_CLASS = Type.getObjectType(SimulationTime.class.getName().replace('.', '/'));
-    public static final Type THREAD_CLASS = Type.getObjectType(Thread.class.getName().replace('.', '/'));
-    public static final Type OF_VIRTUAL_CLASS = Type.getObjectType(Thread.Builder.OfVirtual.class.getName().replace('.', '/'));
+    public static final Type TIME_CLASS =
+        Type.getObjectType(SimulationTime.class.getName().replace('.', '/'));
+    public static final Type THREAD_CLASS =
+        Type.getObjectType(Thread.class.getName().replace('.', '/'));
+    public static final Type OF_VIRTUAL_CLASS =
+        Type.getObjectType(Thread.Builder.OfVirtual.class.getName().replace('.', '/'));
     private final Method onCurrentMillis;
     private final Method onInstantNow;
     private final Method onNanoTime;
@@ -255,8 +258,8 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
           } else if ("java/util/concurrent/Executors".equals(owner)
               && "defaultThreadFactory".equals(name)) {
             // Replace with: Thread.ofVirtual().factory()
-            invokeStatic(THREAD_CLASS,ofVirtual);
-            invokeInterface(OF_VIRTUAL_CLASS,factory);
+            invokeStatic(THREAD_CLASS, ofVirtual);
+            invokeInterface(OF_VIRTUAL_CLASS, factory);
           } else {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
           }
