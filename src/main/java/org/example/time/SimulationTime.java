@@ -22,15 +22,23 @@ import static java.lang.Thread.State.WAITING;
 import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class SimulationTime {
   public static final AtomicLong TIME = timeInstance();
-  public static ScheduledExecutorService scheduler;
   public static final List BLOCKED_THREADS = threadListInstance();
+  public static ScheduledExecutorService scheduler;
+  public static Executor executor;
+  public static ThreadFactory threadFactory;
+  private static ExecutorService executorService;
+
+  // TODO public RandomGenerator random;
 
   public static void setScheduler(ScheduledExecutorService scheduler) {
     SimulationTime.scheduler = scheduler;
@@ -88,6 +96,18 @@ public class SimulationTime {
     return Instant.ofEpochMilli(TIME.get());
   }
 
+  public static ThreadFactory threadFactory() {
+    return threadFactory;
+  }
+
+  public static Executor executor() {
+    return executor;
+  }
+
+  public static ExecutorService executorService() {
+    return executorService;
+  }
+
   /*
   Invoked in the context of the carrier thread after the Continuation yields when parking, blocking on monitor enter, Object.wait, or Thread.yield.
    */
@@ -106,6 +126,36 @@ public class SimulationTime {
         || thread.getState().equals(BLOCKED)
         || thread.getState().equals(TIMED_WAITING)) {
       BLOCKED_THREADS.add(virtualThread);
+    }
+  }
+
+  public static void setExecutor(Executor executor) {
+    SimulationTime.executor = executor;
+    try {
+      Class<?> bootClazz = Class.forName(SimulationTime.class.getCanonicalName(), true, null);
+      bootClazz.getField("executor").set(bootClazz, executor);
+    } catch (ClassNotFoundException | IllegalAccessException | NoSuchFieldException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void setThreadFactory(ThreadFactory threadFactory) {
+    SimulationTime.threadFactory = threadFactory;
+    try {
+      Class<?> bootClazz = Class.forName(SimulationTime.class.getCanonicalName(), true, null);
+      bootClazz.getField("threadFactory").set(bootClazz, threadFactory);
+    } catch (ClassNotFoundException | IllegalAccessException | NoSuchFieldException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void setExecutorService(ExecutorService executorService) {
+    SimulationTime.executorService = executorService;
+    try {
+      Class<?> bootClazz = Class.forName(SimulationTime.class.getCanonicalName(), true, null);
+      bootClazz.getField("executorService").set(bootClazz, executorService);
+    } catch (ClassNotFoundException | IllegalAccessException | NoSuchFieldException e) {
+      e.printStackTrace();
     }
   }
 }

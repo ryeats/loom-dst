@@ -32,6 +32,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AdviceAdapter;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 
@@ -115,14 +116,17 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
         Type.getObjectType(Thread.class.getName().replace('.', '/'));
     public static final Type OF_VIRTUAL_CLASS =
         Type.getObjectType(Thread.Builder.OfVirtual.class.getName().replace('.', '/'));
+    private final Method ofVirtual;
+    private final Method factory;
     private final Method onCurrentMillis;
     private final Method onInstantNow;
     private final Method onNanoTime;
     private final Method schedule;
     private final Method afterYieldHook;
     private final Method getRandom;
-    private final Method ofVirtual;
-    private final Method factory;
+    private final Method threadFactory;
+    private final Method executor;
+    private final Method executorService;
     private String className = "";
 
     public TimeInstrumenatorVisitor(ClassVisitor cv) {
@@ -137,6 +141,11 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
         onInstantNow =
             Method.getMethod(SimulationTime.class.getDeclaredMethod("onInstantNow", null));
         getRandom = Method.getMethod(SimulationRandom.class.getDeclaredMethod("getRandom", null));
+        threadFactory =
+            Method.getMethod(SimulationTime.class.getDeclaredMethod("threadFactory", null));
+        executor = Method.getMethod(SimulationTime.class.getDeclaredMethod("executor", null));
+        executorService =
+            Method.getMethod(SimulationTime.class.getDeclaredMethod("executorService", null));
         schedule =
             Method.getMethod(
                 SimulationTime.class.getDeclaredMethod(
@@ -168,8 +177,9 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
       if (className.equals("org/example/time/SimulationRandom")) {
         return mv;
       }
+      // Prevent VirtualThread-unblocker thread from being started
       if ("java/lang/VirtualThread".equals(className) && "<clinit>".equals(name)) {
-        // Return a visitor that overrides everything and replaces the body with a no-op (RETURN)
+        // Return a visitor specifically for to modify the static block of the VirtualThread class
         return new MethodVisitor(Opcodes.ASM9, mv) {
 
           @Override
@@ -186,6 +196,27 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
             }
 
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+          }
+        };
+      }
+      if ("java/lang/ThreadBuilders$VirtualThreadBuilder".equals(className)
+          && "<init>".equals(name)
+          && "()V".equals(descriptor)) {
+        return new AdviceAdapter(Opcodes.ASM9, mv, access, name, descriptor) {
+          @Override
+          //          protected void onMethodExit(int opcode) {
+          protected void onMethodEnter() {
+            // Ensure the constructor executes successfully before injecting field injection
+            //            if (opcode != ATHROW) {
+            loadThis();
+            invokeStatic(TIME_CLASS, executor);
+
+            mv.visitFieldInsn(
+                Opcodes.PUTFIELD,
+                "java/lang/ThreadBuilders$VirtualThreadBuilder",
+                "scheduler",
+                "Ljava/util/concurrent/Executor;");
+            //            }
           }
         };
       }

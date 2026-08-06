@@ -19,7 +19,8 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.DELETE_ON_CLOSE;
 import static java.nio.file.StandardOpenOption.WRITE;
 
-import com.github.marschall.memoryfilesystem.MemoryFileSystemBuilder;
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
 import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -63,12 +64,6 @@ public class SimulationTest {
     //    FS = FileSystems.getDefault();
     // Was hoping an in memory file system would make things more deterministic, but it actually
     // made things less deterministic!
-    //    FS = Jimfs.newFileSystem(Configuration.unix());
-    FS = MemoryFileSystemBuilder.newEmpty().build();
-    Path filePath = FS.getPath("./target/test.txt");
-    Files.createDirectories(filePath.getParent());
-    Files.write(
-        filePath, "This is a test".getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
 
     //    System.setProperty("jdk.virtualThreadScheduler.parallelism", "1");
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize", "1");
@@ -80,6 +75,12 @@ public class SimulationTest {
     for (int i = 0; i < 100; i++) {
       Simulation simulation = new Simulation(Duration.ofSeconds(60), execFingerPrint);
       LOCK = new ReentrantLock();
+      FS = Jimfs.newFileSystem(Configuration.unix());
+      //      FS = MemoryFileSystemBuilder.newEmpty().build();
+      Path filePath = FS.getPath("./target/test.txt");
+      Files.createDirectories(filePath.getParent());
+      Files.write(
+          filePath, "This is a test".getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
       simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "a"));
       simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "b"));
       simulation.getExecutorService().submit(() -> contentiousTestMethod(simulation, "c"));
@@ -143,11 +144,14 @@ public class SimulationTest {
       synchronousFileIO(i++);
       LOG.append(id);
 
-      // TODO this isn't reliable?
+      // TODO this is dependent finky/broken likely due boot class or instrumentation order
       //      spawnScheduledThread(i++);
       //      LOG.append(id);
 
       spawnThread(i++);
+      LOG.append(id);
+
+      spawnVirtualThread(i++);
       LOG.append(id);
 
       // TODO class loading issue need to fix with something like what byte buddy uses
@@ -155,11 +159,11 @@ public class SimulationTest {
       //      LOG.append(id);
 
       // TODO the log output is wierd i am not sure if it is a test issue or indeterminism
-      //      asyncFileWrite(i++);
-      //      LOG.append(id);
-      //
-      //      asyncFileRead(i++);
-      //      LOG.append(id);
+      asyncFileWrite(i++);
+      LOG.append(id);
+
+      asyncFileRead(i++);
+      LOG.append(id);
 
       // Below are a bunch of tests that will obviously introduce some level of indeterminism in
       // order to confirm that it can be detected
@@ -216,6 +220,19 @@ public class SimulationTest {
   public static synchronized void synchronizedYield(int id) {
     Thread.yield();
     LOG.append(id);
+  }
+
+  public static synchronized void spawnVirtualThread(int id) throws InterruptedException {
+    ThreadFactory tf = Thread.ofVirtual().factory();
+    //    ThreadFactory tf = Executors.defaultThreadFactory();
+    try (ExecutorService es = Executors.newFixedThreadPool(1, tf)) {
+      es.submit(
+          () -> {
+            LOG.append(id);
+          });
+      es.shutdown();
+      es.awaitTermination(1000, TimeUnit.SECONDS);
+    }
   }
 
   public static synchronized void spawnThread(int id) throws InterruptedException {

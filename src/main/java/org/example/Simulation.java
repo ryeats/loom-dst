@@ -47,6 +47,7 @@ public class Simulation {
   private final ExecutorService executorService;
   private final Duration duration;
   private final String execFingerprint;
+  private final DeterministicVirtualThreadScheduler executor;
   private long endTime;
   private final List<Runnable> workQueue = new ArrayList<>(30);
   private final StringBuffer stepTaskLog = new StringBuffer();
@@ -61,14 +62,21 @@ public class Simulation {
   public Simulation(Duration simulationTimeDuration, String execFingerprint) {
     this.duration = simulationTimeDuration;
     random.resetSeed();
-    threadFactory = new SchedulableVirtualThreadFactory(new DeterministicVirtualThreadScheduler());
+    executor = new DeterministicVirtualThreadScheduler();
+    threadFactory = new SchedulableVirtualThreadFactory(executor);
     executorService = Executors.newThreadPerTaskExecutor(threadFactory);
     scheduler =
         new SimulationScheduledExecutor(
             new SimulationClock(SimulationTime::onInstantNow), executorService);
+    //    executor = SimulationSate.executor;
+    //    threadFactory = SimulationSate.threadFactory;
+    //    executorService = SimulationSate.executorService;
+    //    scheduler = SimulationSate.scheduler;
+    //    SimulationSate.reset();
     //    scheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
     //    scheduler = new ScheduledThreadPoolExecutor(0, threadFactory);
     SimulationTime.setScheduler(scheduler);
+    SimulationTime.setExecutor(executor);
     workQueue.add(this::tick);
     this.execFingerprint = execFingerprint;
   }
