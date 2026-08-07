@@ -38,6 +38,8 @@ import java.nio.file.StandardOpenOption;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -45,8 +47,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import org.example.net.EchoClient;
-import org.example.net.NettyEchoClient;
+import org.example.net.LocalEcho;
 import org.example.time.SimulationRandom;
 
 /*
@@ -61,10 +62,6 @@ public class SimulationTest {
   private static Lock LOCK = new ReentrantLock();
 
   public static void main(String... args) throws Exception {
-    //    FS = FileSystems.getDefault();
-    // Was hoping an in memory file system would make things more deterministic, but it actually
-    // made things less deterministic!
-
     //    System.setProperty("jdk.virtualThreadScheduler.parallelism", "1");
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize", "1");
     //    System.setProperty("jdk.virtualThreadScheduler.minRunnable", "1");
@@ -75,6 +72,7 @@ public class SimulationTest {
     for (int i = 0; i < 100; i++) {
       Simulation simulation = new Simulation(Duration.ofSeconds(60), execFingerPrint);
       LOCK = new ReentrantLock();
+      //    FS = FileSystems.getDefault();
       FS = Jimfs.newFileSystem(Configuration.unix());
       //      FS = MemoryFileSystemBuilder.newEmpty().build();
       Path filePath = FS.getPath("./target/test.txt");
@@ -155,10 +153,11 @@ public class SimulationTest {
       LOG.append(id);
 
       // TODO class loading issue need to fix with something like what byte buddy uses
-      //      nettyAsyncLocalNetworkIO(i++, simulation.getExecutorService());
+      //      nettyAsyncLocalNetworkIO(i++);
       //      LOG.append(id);
 
-      // TODO the log output is wierd i am not sure if it is a test issue or indeterminism
+      // TODO sensitive to classloader timing if instrumenting  Executors.defaultThreadFactory and
+      // Thread.ofVirtual.threadFactory
       asyncFileWrite(i++);
       LOG.append(id);
 
@@ -339,33 +338,14 @@ public class SimulationTest {
     }
   }
 
-  public static void syncLocalNetworkIO(int id) {
-    EchoClient echoClient = new EchoClient("localhost", 4242);
-    try {
-      String resp = echoClient.send(LOG.toString());
-      LOG.append(id);
-    } catch (IOException e) {
-      e.printStackTrace();
+  public static void nettyAsyncLocalNetworkIO(int id)
+      throws IOException, InterruptedException, ExecutionException {
+    try (LocalEcho localEcho = new LocalEcho(new SecureRandom().nextInt() + "")) {
+      CompletableFuture<String> future = new CompletableFuture<>();
+      localEcho.server();
+      localEcho.client(id + "", future::complete);
+      LOG.append(future.get());
     }
-  }
-
-  public static void nettyAsyncLocalNetworkIO(int id, ExecutorService es) {
-    NettyEchoClient nettyEchoClient =
-        new NettyEchoClient(
-            es,
-            "localhost",
-            4242,
-            (nec, s) -> {
-              LOG.append(id);
-
-              nec.close();
-            });
-    try {
-      nettyEchoClient.start();
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-    nettyEchoClient.sendMessage(LOG.toString());
   }
 
   public static void asyncFileRead(int id) {
