@@ -31,7 +31,8 @@ public class EchoClient {
   }
 
   public String send(String send) throws IOException {
-    try (Socket echoSocket = new Socket(hostName, portNumber);
+    //    try (Socket echoSocket = new Socket(hostName, portNumber);
+    try (Socket echoSocket = new InMemorySocket(hostName, portNumber);
         PrintWriter out = new PrintWriter(echoSocket.getOutputStream(), true);
         BufferedReader in =
             new BufferedReader(new InputStreamReader(echoSocket.getInputStream()))) {

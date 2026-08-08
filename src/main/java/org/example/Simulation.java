@@ -174,7 +174,7 @@ public class Simulation {
   }
 
   public ExecutorService getExecutorService() {
-    return executorService;
+    return Executors.newThreadPerTaskExecutor(threadFactory);
   }
 
   public Duration getDuration() {

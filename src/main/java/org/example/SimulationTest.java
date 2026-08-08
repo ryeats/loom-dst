@@ -47,6 +47,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.example.net.EchoClient;
+import org.example.net.EchoServer;
 import org.example.net.LocalEcho;
 import org.example.time.SimulationRandom;
 
@@ -150,6 +152,9 @@ public class SimulationTest {
       LOG.append(id);
 
       spawnVirtualThread(i++);
+      LOG.append(id);
+      //
+      syncLocalNetworkIO(i++, simulation.getExecutorService());
       LOG.append(id);
 
       // TODO class loading issue need to fix with something like what byte buddy uses
@@ -335,6 +340,18 @@ public class SimulationTest {
 
     } catch (IOException e) {
       e.printStackTrace();
+    }
+  }
+
+  public static void syncLocalNetworkIO(int id, ExecutorService es) {
+    int port = Math.abs(new Random().nextInt() % 65535);
+    try (EchoServer server = new EchoServer(es, port)) {
+      Thread.sleep(1000);
+      EchoClient client = new EchoClient("localhost", port);
+      String resp = client.send(LOG.toString());
+      LOG.append(id);
+    } catch (IOException | InterruptedException e) {
+      throw new RuntimeException(e);
     }
   }
 

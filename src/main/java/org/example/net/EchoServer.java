@@ -42,7 +42,8 @@ public class EchoServer implements Closeable {
   }
 
   public void listen(int port) {
-    try (ServerSocket serverSocket = new ServerSocket(port)) {
+    //    try (ServerSocket serverSocket = new ServerSocket(port)) {
+    try (ServerSocket serverSocket = new InMemoryServerSocket(port)) {
       //      System.out.println("Server is listening on port " + port);
       this.serverSocket = serverSocket;
       while (running) {
@@ -92,10 +93,11 @@ public class EchoServer implements Closeable {
   }
 
   public static void main(String... args) throws Exception {
-    try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+    try (ExecutorService executor =
+        Executors.newThreadPerTaskExecutor(Thread.ofVirtual().factory())) {
       EchoServer server = new EchoServer(executor, 4242);
       EchoClient client = new EchoClient("localhost", 4242);
-      System.out.println(client.send("TEST"));
+      System.out.println(client.send("test2"));
       server.close();
     }
   }
